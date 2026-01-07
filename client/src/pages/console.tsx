@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from "wagmi";
 import { linea } from "wagmi/chains";
-import { keccak256, encodePacked, parseEther, formatEther } from "viem";
+import { keccak256, toBytes, parseEther, formatEther } from "viem";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Stepper } from "@/components/stepper";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID } from "@/lib/abi";
+import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { UploadResponse } from "@shared/schema";
@@ -56,7 +56,7 @@ export default function Platform() {
     functionName: "projectFee",
   });
 
-  const slugHash = slug ? keccak256(encodePacked(["string"], [slug])) : undefined;
+  const slugHash = slug ? keccak256(toBytes(slug.trim().toLowerCase())) : undefined;
 
   const { data: fetchedProjectId, refetch: refetchProjectId } = useReadContract({
     address: RWA_ID_REGISTRY_ADDRESS,
@@ -80,10 +80,10 @@ export default function Platform() {
 
   const uploadMutation = useMutation({
     mutationFn: async (data: { slug: string; csvText: string }) => {
-      const response = await apiRequest<UploadResponse>("POST", "/api/platform/upload", data);
-      return response;
+      const response = await apiRequest("POST", "/api/platform/upload", data);
+      return response.json() as Promise<UploadResponse>;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: UploadResponse) => {
       setMerkleRoot(data.merkleRoot);
       setRowCount(data.rowCount);
       toast({
@@ -106,8 +106,8 @@ export default function Platform() {
     createProject({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
-      functionName: "createProject",
-      args: [slug, baseURI, soulbound],
+      functionName: "createProjectWithSlug",
+      args: [slug.trim().toLowerCase(), soulbound, baseURI],
       value: fee,
     }, {
       onSuccess: () => {
@@ -128,12 +128,11 @@ export default function Platform() {
 
   const handleSetAllowlistRoot = useCallback(() => {
     if (!projectId || !merkleRoot) return;
-    const badgeType = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
-      functionName: "setAllowlistRoot",
-      args: [projectId, badgeType, merkleRoot as `0x${string}`],
+      functionName: "setAllowlistRootForBadgeWithWindow",
+      args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, 0n, 0n],
     }, {
       onSuccess: () => {
         toast({

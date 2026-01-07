@@ -8,14 +8,14 @@ import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "./lib/wagmi-config";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
-import Platform from "@/pages/platform";
+import Console from "@/pages/console";
 import Claim from "@/pages/claim";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      <Route path="/platform" component={Platform} />
+      <Route path="/console" component={Console} />
       <Route path="/claim" component={Claim} />
       <Route component={NotFound} />
     </Switch>

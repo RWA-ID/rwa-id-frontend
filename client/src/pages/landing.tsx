@@ -47,9 +47,9 @@ export default function Landing() {
               <span className="font-heading text-xl font-bold">RWA-ID</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Link href="/platform">
-                <Button variant="ghost" size="sm" data-testid="link-platform-nav">
-                  Platform
+              <Link href="/console">
+                <Button variant="ghost" size="sm" data-testid="link-console-nav">
+                  Platform Console
                 </Button>
               </Link>
               <Link href="/claim">
@@ -82,10 +82,10 @@ export default function Landing() {
                   at scale. Supports millions of allowlisted claims via Merkle proof verification.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
-                  <Link href="/platform">
-                    <Button size="lg" className="rounded-full px-8" data-testid="button-launch-platform">
+                  <Link href="/console">
+                    <Button size="lg" className="rounded-full px-8" data-testid="button-platform-console">
                       <Building2 className="mr-2 h-5 w-5" />
-                      Launch Platform
+                      Platform Console
                     </Button>
                   </Link>
                   <Link href="/claim">
