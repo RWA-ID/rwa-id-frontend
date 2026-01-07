@@ -1,4 +1,6 @@
-import { keccak256, encodePacked, type Hex } from "viem";
+import { keccak256, toBytes, hexToBytes, type Hex } from "viem";
+import keccak256js from "keccak256";
+import { MerkleTree } from "merkletreejs";
 
 export interface MerkleEntry {
   name: string;
@@ -7,27 +9,25 @@ export interface MerkleEntry {
 
 export interface MerkleTreeResult {
   root: Hex;
-  leaves: Hex[];
+  leaves: Buffer[];
   entries: MerkleEntry[];
-}
-
-export function computeLeaf(address: string, name: string): Hex {
-  const nameLower = name.toLowerCase().trim();
-  const addrLower = address.toLowerCase() as `0x${string}`;
-  return keccak256(encodePacked(["address", "string"], [addrLower, nameLower]));
+  tree: MerkleTree;
 }
 
 export function computeNameHash(name: string): Hex {
-  return keccak256(encodePacked(["string"], [name.toLowerCase().trim()]));
+  return keccak256(toBytes(name.trim().toLowerCase()));
 }
 
-function sortPair(a: Hex, b: Hex): [Hex, Hex] {
-  return a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
-}
+export function computeLeaf(address: string, name: string): Buffer {
+  const nh = computeNameHash(name);
+  const addrBytes = hexToBytes(address.toLowerCase() as `0x${string}`);
+  const nhBytes = hexToBytes(nh);
 
-function hashPair(a: Hex, b: Hex): Hex {
-  const [left, right] = sortPair(a, b);
-  return keccak256(encodePacked(["bytes32", "bytes32"], [left, right]));
+  const packed = new Uint8Array(20 + 32);
+  packed.set(addrBytes, 0);
+  packed.set(nhBytes, 20);
+
+  return keccak256js(Buffer.from(packed));
 }
 
 export function buildMerkleTree(entries: MerkleEntry[]): MerkleTreeResult {
@@ -36,102 +36,45 @@ export function buildMerkleTree(entries: MerkleEntry[]): MerkleTreeResult {
   }
 
   const leaves = entries.map((entry) => computeLeaf(entry.address, entry.name));
-  
-  const sortedLeaves = [...leaves].sort((a, b) => 
-    a.toLowerCase().localeCompare(b.toLowerCase())
-  );
 
-  if (sortedLeaves.length === 1) {
-    return {
-      root: sortedLeaves[0],
-      leaves,
-      entries,
-    };
-  }
-
-  let currentLevel = sortedLeaves;
-
-  while (currentLevel.length > 1) {
-    const nextLevel: Hex[] = [];
-    
-    for (let i = 0; i < currentLevel.length; i += 2) {
-      if (i + 1 < currentLevel.length) {
-        nextLevel.push(hashPair(currentLevel[i], currentLevel[i + 1]));
-      } else {
-        nextLevel.push(currentLevel[i]);
-      }
-    }
-    
-    currentLevel = nextLevel;
-  }
+  const tree = new MerkleTree(leaves, keccak256js, { sortPairs: true });
+  const root = tree.getHexRoot() as Hex;
 
   return {
-    root: currentLevel[0],
+    root,
     leaves,
     entries,
+    tree,
   };
 }
 
 export function generateProof(
+  tree: MerkleTree,
   entries: MerkleEntry[],
   targetAddress: string,
   targetName: string
-): { proof: Hex[]; leaf: Hex; found: boolean } {
+): { proof: Hex[]; nameHash: Hex; found: boolean } {
   const targetLeaf = computeLeaf(targetAddress, targetName);
-  
-  const leaves = entries.map((entry) => computeLeaf(entry.address, entry.name));
-  
-  const leafIndex = leaves.findIndex(
-    (leaf) => leaf.toLowerCase() === targetLeaf.toLowerCase()
+  const nameHash = computeNameHash(targetName);
+
+  const entryIndex = entries.findIndex(
+    (e) =>
+      e.address.toLowerCase() === targetAddress.toLowerCase() &&
+      e.name.trim().toLowerCase() === targetName.trim().toLowerCase()
   );
 
-  if (leafIndex === -1) {
-    return { proof: [], leaf: targetLeaf, found: false };
+  if (entryIndex === -1) {
+    return { proof: [], nameHash, found: false };
   }
 
-  const sortedLeaves = [...leaves].sort((a, b) =>
-    a.toLowerCase().localeCompare(b.toLowerCase())
-  );
+  const proof = tree.getHexProof(targetLeaf) as Hex[];
 
-  const sortedIndex = sortedLeaves.findIndex(
-    (leaf) => leaf.toLowerCase() === targetLeaf.toLowerCase()
-  );
-
-  if (sortedIndex === -1) {
-    return { proof: [], leaf: targetLeaf, found: false };
-  }
-
-  const proof: Hex[] = [];
-  let currentLevel = sortedLeaves;
-  let currentIndex = sortedIndex;
-
-  while (currentLevel.length > 1) {
-    const isLeftNode = currentIndex % 2 === 0;
-    const siblingIndex = isLeftNode ? currentIndex + 1 : currentIndex - 1;
-
-    if (siblingIndex < currentLevel.length) {
-      proof.push(currentLevel[siblingIndex]);
-    }
-
-    const nextLevel: Hex[] = [];
-    for (let i = 0; i < currentLevel.length; i += 2) {
-      if (i + 1 < currentLevel.length) {
-        nextLevel.push(hashPair(currentLevel[i], currentLevel[i + 1]));
-      } else {
-        nextLevel.push(currentLevel[i]);
-      }
-    }
-
-    currentLevel = nextLevel;
-    currentIndex = Math.floor(currentIndex / 2);
-  }
-
-  return { proof, leaf: targetLeaf, found: true };
+  return { proof, nameHash, found: true };
 }
 
 export function parseCSV(csvText: string): MerkleEntry[] {
   const lines = csvText.trim().split(/\r?\n/);
-  
+
   if (lines.length < 2) {
     throw new Error("CSV must have at least a header row and one data row");
   }
@@ -147,7 +90,7 @@ export function parseCSV(csvText: string): MerkleEntry[] {
     if (!line) continue;
 
     const parts = line.split(",").map((p) => p.trim());
-    
+
     if (parts.length < 2) {
       throw new Error(`Invalid CSV row ${i + 1}: expected name,address`);
     }

@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import type { Server } from "http";
 import { storage } from "./storage";
 import { buildMerkleTree, generateProof, parseCSV, computeNameHash } from "./merkle";
 import { z } from "zod";
@@ -34,17 +34,18 @@ export async function registerRoutes(
 
       const entries = parseCSV(csvText);
 
-      const tree = buildMerkleTree(entries);
+      const treeResult = buildMerkleTree(entries);
 
       await storage.saveProject({
         slug: slug.toLowerCase(),
-        merkleRoot: tree.root,
-        entries: tree.entries,
+        merkleRoot: treeResult.root,
+        entries: treeResult.entries,
+        tree: treeResult.tree,
         createdAt: Date.now(),
       });
 
       return res.json({
-        merkleRoot: tree.root,
+        merkleRoot: treeResult.root,
         rowCount: entries.length,
       });
     } catch (error) {
@@ -78,8 +79,12 @@ export async function registerRoutes(
         });
       }
 
-      const { proof, found } = generateProof(project.entries, address, name);
-      const nameHash = computeNameHash(name);
+      const { proof, nameHash, found } = generateProof(
+        project.tree,
+        project.entries,
+        address,
+        name
+      );
 
       return res.json({
         proof,

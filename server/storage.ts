@@ -1,10 +1,12 @@
 import type { MerkleEntry } from "./merkle";
 import type { Hex } from "viem";
+import type { MerkleTree } from "merkletreejs";
 
 export interface ProjectData {
   slug: string;
   merkleRoot: Hex;
   entries: MerkleEntry[];
+  tree: MerkleTree;
   createdAt: number;
 }
 
