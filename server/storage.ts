@@ -1,37 +1,36 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
+import type { MerkleEntry } from "./merkle";
+import type { Hex } from "viem";
 
-// modify the interface with any CRUD methods
-// you might need
+export interface ProjectData {
+  slug: string;
+  merkleRoot: Hex;
+  entries: MerkleEntry[];
+  createdAt: number;
+}
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getProject(slug: string): Promise<ProjectData | undefined>;
+  saveProject(data: ProjectData): Promise<void>;
+  getAllProjects(): Promise<ProjectData[]>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private projects: Map<string, ProjectData>;
 
   constructor() {
-    this.users = new Map();
+    this.projects = new Map();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getProject(slug: string): Promise<ProjectData | undefined> {
+    return this.projects.get(slug.toLowerCase());
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async saveProject(data: ProjectData): Promise<void> {
+    this.projects.set(data.slug.toLowerCase(), data);
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async getAllProjects(): Promise<ProjectData[]> {
+    return Array.from(this.projects.values());
   }
 }
 
