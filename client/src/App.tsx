@@ -5,11 +5,27 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WagmiProvider } from "wagmi";
-import { wagmiConfig } from "./lib/wagmi-config";
+import { createAppKit } from "@reown/appkit/react";
+import { wagmiAdapter, projectId, networks, metadata } from "./lib/wagmi-config";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Console from "@/pages/console";
 import Claim from "@/pages/claim";
+
+if (projectId) {
+  createAppKit({
+    adapters: [wagmiAdapter],
+    projectId,
+    networks,
+    metadata,
+    features: {
+      analytics: false,
+      socials: ["google", "x", "discord", "farcaster"],
+      email: true,
+    },
+    themeMode: "light",
+  });
+}
 
 function Router() {
   return (
@@ -24,7 +40,7 @@ function Router() {
 
 function App() {
   return (
-    <WagmiProvider config={wagmiConfig}>
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <TooltipProvider>
