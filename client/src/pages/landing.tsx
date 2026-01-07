@@ -193,32 +193,22 @@ export default function Landing() {
                 </ul>
               </div>
               <div className="bg-card rounded-2xl border p-6 sm:p-8">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 pb-4 border-b">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Claim Your Identity</p>
-                      <p className="text-sm text-muted-foreground">securitize.rwa-id.eth</p>
-                    </div>
+                <div className="space-y-6 text-center">
+                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                    <Fingerprint className="w-10 h-10 text-primary" />
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <label className="text-sm font-medium mb-2 block">Your Name</label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-12 px-4 rounded-lg border bg-background flex items-center">
-                        <span className="text-muted-foreground">hector</span>
-                      </div>
-                      <span className="text-muted-foreground">.securitize.rwa-id.eth</span>
-                    </div>
+                  <div>
+                    <p className="font-heading text-xl font-semibold mb-2">Ready to Claim?</p>
+                    <p className="text-muted-foreground mb-6">
+                      If you have been assigned an identity by a platform, you can claim it now.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400">
-                    <CheckCircle className="w-5 h-5" />
-                    <span className="font-medium">You are eligible to claim!</span>
-                  </div>
-                  <Button className="w-full" size="lg" disabled>
-                    Claim Identity
-                  </Button>
+                  <Link href="/claim">
+                    <Button className="w-full" size="lg" data-testid="button-claim-cta">
+                      <Fingerprint className="mr-2 h-5 w-5" />
+                      Go to Claim Page
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>

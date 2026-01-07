@@ -198,7 +198,7 @@ export default function Claim() {
                     <Label htmlFor="slug">Project Slug</Label>
                     <Input
                       id="slug"
-                      placeholder="e.g., securitize"
+                      placeholder="e.g., acme"
                       value={slug}
                       onChange={(e) => {
                         setSlug(e.target.value.toLowerCase());
