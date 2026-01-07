@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://rwa-id.replit.app/</loc>
+    <loc>https://rwa-id.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://rwa-id.replit.app/console</loc>
+    <loc>https://rwa-id.com/console</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://rwa-id.replit.app/claim</loc>
+    <loc>https://rwa-id.com/claim</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

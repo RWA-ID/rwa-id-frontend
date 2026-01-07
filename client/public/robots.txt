@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://rwa-id.replit.app/sitemap.xml
+Sitemap: https://rwa-id.com/sitemap.xml
