@@ -75,7 +75,7 @@ export default function Landing() {
                 </div>
                 <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
                   Decentralized Identity
-                  <span className="block text-primary">for Real World Assets</span>
+                  <span className="block text-primary">For Real World Assets And Client Wallets</span>
                 </h1>
                 <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl">
                   Create namespace registries and issue verifiable, soulbound identities
