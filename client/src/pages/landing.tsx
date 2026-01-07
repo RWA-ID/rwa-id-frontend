@@ -250,11 +250,14 @@ export default function Landing() {
                   <p className="mb-2">
                     Each leaf in the Merkle tree is computed as:
                   </p>
+                  <code className="block bg-muted px-3 py-2 rounded-lg font-mono text-sm mb-2">
+                    nameHash = keccak256(name.trim().toLowerCase())
+                  </code>
                   <code className="block bg-muted px-3 py-2 rounded-lg font-mono text-sm">
-                    keccak256(abi.encodePacked(address, nameLowercase))
+                    leaf = keccak256(abi.encodePacked(address, nameHash))
                   </code>
                   <p className="mt-2">
-                    The name is converted to lowercase before hashing to ensure consistency.
+                    The name is trimmed and converted to lowercase, then hashed before being packed with the address.
                   </p>
                 </AccordionContent>
               </AccordionItem>
