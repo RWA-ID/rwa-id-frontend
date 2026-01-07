@@ -310,7 +310,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                 </button>
               </div>
               <a
-                href={`https://lineascan.build/address/${CONTRACT_ADDRESS}`}
+                href={`https://explorer.linea.build/address/${CONTRACT_ADDRESS}?tab=contract`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 hover:text-foreground transition-colors"
@@ -333,6 +333,13 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
               <span className="font-heading font-semibold">RWA-ID</span>
             </div>
             <p>Decentralized Identity Registry for Real World Assets</p>
+            <a
+              href="mailto:partner@rwa-id.com"
+              className="hover:text-foreground transition-colors"
+              data-testid="link-contact-email"
+            >
+              partner@rwa-id.com
+            </a>
           </div>
         </div>
       </footer>
