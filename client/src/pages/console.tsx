@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   FileText,
   Link as LinkIcon,
+  Download,
 } from "lucide-react";
 
 const STEPS = ["Connect", "Create Project", "Upload CSV", "Set Root", "Complete"];
@@ -49,6 +50,9 @@ export default function Platform() {
   const [merkleRoot, setMerkleRoot] = useState("");
   const [rowCount, setRowCount] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [validFrom, setValidFrom] = useState("0");
+  const [validTo, setValidTo] = useState("0");
+  const [proofsData, setProofsData] = useState<Record<string, { name: string; nameHash: string; proof: string[] }> | null>(null);
 
   const { data: projectFee } = useReadContract({
     address: RWA_ID_REGISTRY_ADDRESS,
@@ -81,11 +85,14 @@ export default function Platform() {
   const uploadMutation = useMutation({
     mutationFn: async (data: { slug: string; csvText: string }) => {
       const response = await apiRequest("POST", "/api/platform/upload", data);
-      return response.json() as Promise<UploadResponse>;
+      return response.json() as Promise<UploadResponse & { proofs?: Record<string, { name: string; nameHash: string; proof: string[] }> }>;
     },
-    onSuccess: (data: UploadResponse) => {
+    onSuccess: (data) => {
       setMerkleRoot(data.merkleRoot);
       setRowCount(data.rowCount);
+      if (data.proofs) {
+        setProofsData(data.proofs);
+      }
       toast({
         title: "CSV Uploaded",
         description: `Merkle tree generated with ${data.rowCount} entries`,
@@ -128,11 +135,13 @@ export default function Platform() {
 
   const handleSetAllowlistRoot = useCallback(() => {
     if (!projectId || !merkleRoot) return;
+    const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
+    const toTs = validTo ? BigInt(validTo) : BigInt(0);
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
       functionName: "setAllowlistRootForBadgeWithWindow",
-      args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, 0n, 0n],
+      args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
     }, {
       onSuccess: () => {
         toast({
@@ -148,7 +157,39 @@ export default function Platform() {
         });
       },
     });
-  }, [projectId, merkleRoot, setAllowlistRoot, toast]);
+  }, [projectId, merkleRoot, validFrom, validTo, setAllowlistRoot, toast]);
+  
+  const downloadProofsJson = useCallback(() => {
+    if (!proofsData || !slugHash || !projectId) return;
+    
+    const proofsFile = {
+      chainId: LINEA_CHAIN_ID,
+      registry: RWA_ID_REGISTRY_ADDRESS,
+      slug: slug.trim().toLowerCase(),
+      slugHash: slugHash,
+      projectId: projectId.toString(),
+      badgeType: BADGE_TYPE_DEFAULT,
+      merkleRoot: merkleRoot,
+      validFrom: validFrom || "0",
+      validTo: validTo || "0",
+      entries: proofsData,
+    };
+    
+    const blob = new Blob([JSON.stringify(proofsFile, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `allowlist_proofs_${slug}_project${projectId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Proofs Downloaded",
+      description: "Host this file on your servers for users to claim.",
+    });
+  }, [proofsData, slugHash, projectId, slug, merkleRoot, validFrom, validTo, toast]);
 
   const handleUploadCSV = () => {
     if (!csvText || !slug) return;
@@ -443,6 +484,35 @@ export default function Platform() {
                   </p>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="validFrom">Valid From (Unix timestamp)</Label>
+                  <Input
+                    id="validFrom"
+                    type="number"
+                    placeholder="0"
+                    value={validFrom}
+                    onChange={(e) => setValidFrom(e.target.value)}
+                    disabled={isSettingRoot || isWaitingSetRoot}
+                    data-testid="input-valid-from"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="validTo">Valid To (Unix timestamp)</Label>
+                  <Input
+                    id="validTo"
+                    type="number"
+                    placeholder="0"
+                    value={validTo}
+                    onChange={(e) => setValidTo(e.target.value)}
+                    disabled={isSettingRoot || isWaitingSetRoot}
+                    data-testid="input-valid-to"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave both as 0 for no time restrictions. Use Unix timestamps for specific windows.
+              </p>
               <Button
                 onClick={handleSetAllowlistRoot}
                 disabled={!merkleRoot || isSettingRoot || isWaitingSetRoot || setRootSuccess}
@@ -516,6 +586,20 @@ export default function Platform() {
                   </>
                 )}
               </Button>
+              {proofsData && (
+                <Button
+                  onClick={downloadProofsJson}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-download-proofs"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Proofs JSON
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground text-center">
+                Host the proofs JSON on your servers. Users will need this to claim their identities.
+              </p>
               <Link href={`/claim?slug=${slug}`}>
                 <Button className="w-full" data-testid="button-view-claim">
                   <LinkIcon className="mr-2 h-4 w-4" />
@@ -532,6 +616,9 @@ export default function Platform() {
                   setCsvText("");
                   setMerkleRoot("");
                   setRowCount(0);
+                  setProofsData(null);
+                  setValidFrom("0");
+                  setValidTo("0");
                 }}
                 data-testid="button-create-another"
               >

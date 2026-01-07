@@ -1,18 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
-import { linea } from "wagmi/chains";
 import { keccak256, toBytes } from "viem";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID } from "@/lib/abi";
+import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
 import { useToast } from "@/hooks/use-toast";
-import type { ProofResponse } from "@shared/schema";
 import {
   Fingerprint,
   CheckCircle,
@@ -21,7 +20,27 @@ import {
   ExternalLink,
   AlertTriangle,
   Sparkles,
+  Upload,
+  Globe,
+  FileText,
 } from "lucide-react";
+
+interface ProofsJsonEntry {
+  name: string;
+  nameHash: string;
+  proof: string[];
+}
+
+interface ProofsJson {
+  chainId?: number;
+  registry?: string;
+  slug?: string;
+  slugHash?: string;
+  projectId?: string;
+  badgeType?: string;
+  merkleRoot?: string;
+  entries: Record<string, ProofsJsonEntry>;
+}
 
 export default function Claim() {
   const { toast } = useToast();
@@ -35,6 +54,12 @@ export default function Claim() {
   const [slug, setSlug] = useState(slugFromUrl);
   const [name, setName] = useState("");
   const [hasChecked, setHasChecked] = useState(false);
+  const [proofSource, setProofSource] = useState<"url" | "upload" | "paste">("url");
+  const [proofsUrl, setProofsUrl] = useState("");
+  const [proofsJson, setProofsJson] = useState("");
+  const [parsedProofs, setParsedProofs] = useState<ProofsJson | null>(null);
+  const [isLoadingProofs, setIsLoadingProofs] = useState(false);
+  const [proofData, setProofData] = useState<{ proof: string[]; nameHash: string; eligible: boolean } | null>(null);
 
   useEffect(() => {
     if (slugFromUrl) {
@@ -54,38 +79,77 @@ export default function Claim() {
     },
   });
 
-  const { data: proofData, isLoading: isCheckingEligibility, refetch: checkEligibility } = useQuery<ProofResponse>({
-    queryKey: ["/api/proof", slug, name, address],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        slug,
-        name: name.toLowerCase(),
-        address: address || "",
-      });
-      const response = await fetch(`/api/proof?${params}`);
-      if (!response.ok) {
-        throw new Error("Failed to check eligibility");
-      }
-      return response.json();
-    },
-    enabled: false,
-  });
-
   const { writeContract: claimSoulbound, data: claimTxHash, isPending: isClaiming } = useWriteContract();
   const { isLoading: isWaitingClaim, isSuccess: claimSuccess } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
 
-  const handleCheckEligibility = async () => {
-    if (!slug || !name || !address) return;
+  const loadProofsFromUrl = async () => {
+    if (!proofsUrl) return;
+    setIsLoadingProofs(true);
+    try {
+      const response = await fetch(proofsUrl);
+      if (!response.ok) throw new Error("Failed to fetch proofs");
+      const data = await response.json();
+      setParsedProofs(data);
+      toast({ title: "Proofs Loaded", description: "Successfully loaded proofs from URL" });
+    } catch (error) {
+      toast({ title: "Failed to Load Proofs", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setIsLoadingProofs(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        setParsedProofs(data);
+        toast({ title: "Proofs Loaded", description: "Successfully loaded proofs from file" });
+      } catch {
+        toast({ title: "Invalid JSON", description: "Failed to parse proofs file", variant: "destructive" });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parseProofsJson = () => {
+    if (!proofsJson) return;
+    try {
+      const data = JSON.parse(proofsJson);
+      setParsedProofs(data);
+      toast({ title: "Proofs Loaded", description: "Successfully parsed proofs JSON" });
+    } catch {
+      toast({ title: "Invalid JSON", description: "Failed to parse proofs", variant: "destructive" });
+    }
+  };
+
+  const handleCheckEligibility = () => {
+    if (!parsedProofs || !address || !name) return;
     setHasChecked(true);
-    await checkEligibility();
+    
+    const entry = parsedProofs.entries[address.toLowerCase()];
+    if (entry && entry.name.toLowerCase() === name.toLowerCase()) {
+      setProofData({
+        proof: entry.proof,
+        nameHash: entry.nameHash,
+        eligible: true,
+      });
+    } else {
+      const nameHash = keccak256(toBytes(name.trim().toLowerCase()));
+      setProofData({
+        proof: [],
+        nameHash,
+        eligible: false,
+      });
+    }
   };
 
   const handleClaim = () => {
     if (!proofData || !proofData.eligible || !projectId) return;
-    
-    const badgeType = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
     
     claimSoulbound({
       address: RWA_ID_REGISTRY_ADDRESS,
@@ -93,9 +157,9 @@ export default function Claim() {
       functionName: "claimSoulbound",
       args: [
         projectId,
-        badgeType,
+        BADGE_TYPE_DEFAULT,
         proofData.nameHash as `0x${string}`,
-        name.toLowerCase(),
+        name.trim().toLowerCase(),
         proofData.proof as `0x${string}`[],
       ],
     }, {
@@ -117,6 +181,7 @@ export default function Claim() {
 
   const isEligible = hasChecked && proofData?.eligible;
   const isNotEligible = hasChecked && proofData && !proofData.eligible;
+  const computedNameHash = name ? keccak256(toBytes(name.trim().toLowerCase())) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -210,6 +275,85 @@ export default function Claim() {
                 )}
 
                 <div className="space-y-2">
+                  <Label>Proofs Source</Label>
+                  <Tabs value={proofSource} onValueChange={(v) => setProofSource(v as typeof proofSource)}>
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="url" data-testid="tab-proofs-url">
+                        <Globe className="w-4 h-4 mr-1" />
+                        URL
+                      </TabsTrigger>
+                      <TabsTrigger value="upload" data-testid="tab-proofs-upload">
+                        <Upload className="w-4 h-4 mr-1" />
+                        Upload
+                      </TabsTrigger>
+                      <TabsTrigger value="paste" data-testid="tab-proofs-paste">
+                        <FileText className="w-4 h-4 mr-1" />
+                        Paste
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="url" className="space-y-2">
+                      <Input
+                        placeholder="https://example.com/proofs.json"
+                        value={proofsUrl}
+                        onChange={(e) => setProofsUrl(e.target.value)}
+                        data-testid="input-proofs-url"
+                      />
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={loadProofsFromUrl}
+                        disabled={!proofsUrl || isLoadingProofs}
+                        data-testid="button-load-proofs-url"
+                      >
+                        {isLoadingProofs ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Load Proofs
+                      </Button>
+                    </TabsContent>
+                    <TabsContent value="upload" className="space-y-2">
+                      <div
+                        className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover-elevate"
+                        onClick={() => document.getElementById("proofs-file")?.click()}
+                      >
+                        <input
+                          type="file"
+                          id="proofs-file"
+                          accept=".json"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                          data-testid="input-proofs-file"
+                        />
+                        <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Click to upload proofs JSON</p>
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="paste" className="space-y-2">
+                      <Textarea
+                        placeholder='{"entries": { "0x...": { ... } }}'
+                        value={proofsJson}
+                        onChange={(e) => setProofsJson(e.target.value)}
+                        className="min-h-[100px] font-mono text-xs"
+                        data-testid="textarea-proofs-json"
+                      />
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={parseProofsJson}
+                        disabled={!proofsJson}
+                        data-testid="button-parse-proofs"
+                      >
+                        Parse Proofs
+                      </Button>
+                    </TabsContent>
+                  </Tabs>
+                  {parsedProofs && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                      <CheckCircle className="w-4 h-4" />
+                      Proofs loaded ({Object.keys(parsedProofs.entries || {}).length} entries)
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="name">Your Name</Label>
                   <div className="flex items-center gap-2">
                     <Input
@@ -245,19 +389,12 @@ export default function Claim() {
                   <>
                     <Button
                       onClick={handleCheckEligibility}
-                      disabled={!slug || !name || !address || isCheckingEligibility}
+                      disabled={!parsedProofs || !name || !address}
                       variant="outline"
                       className="w-full"
                       data-testid="button-check-eligibility"
                     >
-                      {isCheckingEligibility ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Checking...
-                        </>
-                      ) : (
-                        "Check Eligibility"
-                      )}
+                      Check Eligibility
                     </Button>
 
                     {isEligible && (
@@ -306,6 +443,38 @@ export default function Claim() {
                       </a>
                     )}
                   </>
+                )}
+
+                {(slugHash || projectId !== undefined || computedNameHash) && (
+                  <div className="p-4 rounded-lg bg-muted space-y-2 text-xs">
+                    <p className="text-muted-foreground font-medium mb-2">Debug Info</p>
+                    {slugHash && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">slugHash:</span>
+                        <span className="font-mono truncate max-w-[200px]">{slugHash}</span>
+                      </div>
+                    )}
+                    {projectId !== undefined && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">projectId:</span>
+                        <span className="font-mono">{projectId?.toString()}</span>
+                      </div>
+                    )}
+                    {computedNameHash && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground">nameHash:</span>
+                        <span className="font-mono truncate max-w-[200px]">{computedNameHash}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">badgeType:</span>
+                      <span className="font-mono">0x00...00</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">registry:</span>
+                      <span className="font-mono truncate max-w-[200px]">{RWA_ID_REGISTRY_ADDRESS}</span>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>

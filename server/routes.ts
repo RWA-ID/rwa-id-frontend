@@ -44,9 +44,25 @@ export async function registerRoutes(
         createdAt: Date.now(),
       });
 
+      const proofs: Record<string, { name: string; nameHash: string; proof: string[] }> = {};
+      for (const entry of treeResult.entries) {
+        const { proof, nameHash } = generateProof(
+          treeResult.tree,
+          treeResult.entries,
+          entry.address,
+          entry.name
+        );
+        proofs[entry.address.toLowerCase()] = {
+          name: entry.name.trim().toLowerCase(),
+          nameHash,
+          proof,
+        };
+      }
+
       return res.json({
         merkleRoot: treeResult.root,
         rowCount: entries.length,
+        proofs,
       });
     } catch (error) {
       console.error("Upload error:", error);
