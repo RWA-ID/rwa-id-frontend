@@ -10,7 +10,8 @@ export function WalletButton() {
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
-  const isWrongNetwork = isConnected && chain?.id !== LINEA_CHAIN_ID;
+  // Only show wrong network if chain is defined and it's not Linea
+  const isWrongNetwork = isConnected && chain !== undefined && chain.id !== LINEA_CHAIN_ID;
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
