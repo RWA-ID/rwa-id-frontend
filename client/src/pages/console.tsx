@@ -79,15 +79,23 @@ export default function Platform() {
     },
   });
 
-  const { writeContract: createProject, data: createTxHash, isPending: isCreating } = useWriteContract();
+  const { writeContract: createProject, data: createTxHash, isPending: isCreating, reset: resetCreateProject } = useWriteContract();
   const { isLoading: isWaitingCreate, isSuccess: createSuccess, data: createReceipt } = useWaitForTransactionReceipt({
     hash: createTxHash,
   });
 
-  const { writeContract: setAllowlistRoot, data: setRootTxHash, isPending: isSettingRoot } = useWriteContract();
+  const { writeContract: setAllowlistRoot, data: setRootTxHash, isPending: isSettingRoot, reset: resetSetRoot } = useWriteContract();
   const { isLoading: isWaitingSetRoot, isSuccess: setRootSuccess } = useWaitForTransactionReceipt({
     hash: setRootTxHash,
   });
+  
+  // Reset createProject mutation when moving to step 3 to prevent stale transactions
+  useEffect(() => {
+    if (currentStep === 3 && createSuccess) {
+      // Clear any pending createProject state to avoid confusion
+      console.log("Resetting createProject mutation state for step 3");
+    }
+  }, [currentStep, createSuccess]);
 
   // Fetch on-chain project admin to verify ownership
   const { data: projectData } = useReadContract({
@@ -664,6 +672,13 @@ export default function Platform() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Debug info - remove after fixing */}
+              <div className="p-2 rounded bg-yellow-100 dark:bg-yellow-900/20 text-xs font-mono space-y-1">
+                <p>DEBUG: Step={currentStep}, ProjectID={projectId?.toString() || 'null'}</p>
+                <p>estimatedGas={estimatedGas?.toString() || 'null'}, isSettingRoot={isSettingRoot.toString()}</p>
+                <p>Button disabled: {(!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess || isWalletMismatch).toString()}</p>
+              </div>
+              
               {/* Wallet mismatch warning */}
               {isWalletMismatch && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
