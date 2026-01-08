@@ -57,6 +57,7 @@ export default function Platform() {
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
   const [gasError, setGasError] = useState<string | null>(null);
+  const [projectAdmin, setProjectAdmin] = useState<string | null>(null);
 
   const publicClient = usePublicClient();
 
@@ -139,8 +140,17 @@ export default function Platform() {
     });
   }, [slug, baseURI, soulbound, projectFee, createProject, toast]);
 
+  // Check if current wallet matches project admin
+  const isWalletMismatch = !!(projectAdmin && address && projectAdmin.toLowerCase() !== address.toLowerCase());
+
   const estimateGasForSetRoot = useCallback(async () => {
     if (!projectId || !merkleRoot || !publicClient || !address) return;
+    
+    // Block if wallet doesn't match project admin
+    if (projectAdmin && projectAdmin.toLowerCase() !== address.toLowerCase()) {
+      setGasError(`Wrong wallet connected. This project was created by ${projectAdmin.slice(0, 6)}...${projectAdmin.slice(-4)}. Please switch back to that wallet.`);
+      return;
+    }
     
     setIsEstimatingGas(true);
     setGasError(null);
@@ -224,7 +234,7 @@ export default function Platform() {
     } finally {
       setIsEstimatingGas(false);
     }
-  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, toast]);
+  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, toast]);
 
   const handleSetAllowlistRoot = useCallback(() => {
     if (!projectId || !merkleRoot || !estimatedGas) return;
@@ -332,6 +342,11 @@ export default function Platform() {
 
   useEffect(() => {
     if (createSuccess && projectId === null && slug) {
+      // Store the wallet that created the project
+      if (address && !projectAdmin) {
+        setProjectAdmin(address);
+      }
+      
       let attempts = 0;
       const maxAttempts = 10;
       
@@ -365,7 +380,7 @@ export default function Platform() {
       const timer = setTimeout(retryFetch, 1500);
       return () => clearTimeout(timer);
     }
-  }, [createSuccess, projectId, slug, refetchProjectId, toast]);
+  }, [createSuccess, projectId, slug, refetchProjectId, toast, address, projectAdmin]);
 
   // Auto-estimate gas when entering step 3 with all required data
   useEffect(() => {
@@ -604,6 +619,22 @@ export default function Platform() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Wallet mismatch warning */}
+              {isWalletMismatch && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-destructive">
+                      <p className="font-medium">Wrong wallet connected</p>
+                      <p className="text-xs mt-1">
+                        This project was created by {projectAdmin?.slice(0, 6)}...{projectAdmin?.slice(-4)}. 
+                        Please switch back to that wallet to set the allowlist root.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <div className="p-4 rounded-lg bg-muted space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Project ID</span>
@@ -702,7 +733,7 @@ export default function Platform() {
               
               <Button
                 onClick={handleSetAllowlistRoot}
-                disabled={!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess}
+                disabled={!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess || isWalletMismatch}
                 className="w-full"
                 data-testid="button-set-root"
               >
