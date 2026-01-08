@@ -104,7 +104,7 @@ export default function Landing() {
                       <Fingerprint className="w-10 h-10 text-primary" />
                     </div>
                     <div className="text-center">
-                      <p className="font-mono text-sm text-muted-foreground">example.rwa-id.eth</p>
+                      <p className="font-mono text-sm text-muted-foreground">yourproject.rwa-id.eth</p>
                       <p className="font-heading text-xl font-semibold mt-2">Verified Identity</p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
