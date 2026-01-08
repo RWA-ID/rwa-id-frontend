@@ -23,6 +23,8 @@ if (projectId) {
       analytics: false,
       socials: ["google", "x", "discord", "farcaster"],
       email: true,
+      swaps: false,
+      onramp: false,
     },
     themeMode: "light",
     featuredWalletIds: [
@@ -31,6 +33,7 @@ if (projectId) {
     enableWalletConnect: true,
     enableInjected: true,
     enableEIP6963: true,
+    allowUnsupportedChain: false,
   });
 }
 
