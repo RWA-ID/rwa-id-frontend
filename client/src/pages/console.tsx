@@ -210,11 +210,14 @@ export default function Platform() {
       
     } catch (error) {
       console.error("Gas estimation failed:", error);
+      console.log("Connected address:", address);
+      console.log("Project ID being used:", projectId?.toString());
+      
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
       // Check for common revert reasons
       if (errorMessage.includes("execution reverted")) {
-        setGasError("Transaction would fail. You may not have permission to set the root for this project, or the project ID is incorrect.");
+        setGasError(`Transaction would fail. Make sure you're using the same wallet that created this project. Connected: ${address?.slice(0, 6)}...${address?.slice(-4)}, Project ID: ${projectId?.toString()}`);
       } else {
         setGasError(`Gas estimation failed: ${errorMessage}`);
       }
