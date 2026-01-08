@@ -8,7 +8,7 @@ export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || "";
 export const metadata = {
   name: "RWA-ID",
   description: "Decentralized Identity Registry on Linea",
-  url: typeof window !== "undefined" ? window.location.origin : "https://rwa-id.com",
+  url: "https://rwa-id.com",
   icons: ["https://avatars.githubusercontent.com/u/179229932"],
 };
 
