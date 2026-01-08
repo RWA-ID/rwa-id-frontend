@@ -180,9 +180,11 @@ export async function registerRoutes(
             entry.name
           );
 
+          // Note: projectId is fetched on-chain by frontend using projectIdBySlugHash(slugHash)
+          // badgeType is BADGE_TYPE_DEFAULT (bytes32(0)) for all MVP projects
           claims.push({
             slug: project.slug,
-            projectId: "0", // Will be fetched on-chain by frontend
+            projectId: "on-chain", // Frontend fetches via projectIdBySlugHash
             badgeType: "0x0000000000000000000000000000000000000000000000000000000000000000",
             name: entry.name.trim().toLowerCase(),
             nameHash,
