@@ -169,13 +169,24 @@ export default function Platform() {
   const effectiveAdmin = onChainAdmin || projectAdmin;
   const isWalletMismatch = !!(effectiveAdmin && address && effectiveAdmin.toLowerCase() !== address.toLowerCase());
 
+  // Track if on-chain admin has been loaded
+  const isAdminLoaded = !!onChainAdmin;
+  
   const estimateGasForSetRoot = useCallback(async () => {
     if (!projectId || !merkleRoot || !publicClient || !address) return;
     
-    // Block if wallet doesn't match project admin (use on-chain admin if available)
-    const adminToCheck = onChainAdmin || projectAdmin;
-    if (adminToCheck && adminToCheck.toLowerCase() !== address.toLowerCase()) {
-      setGasError(`Wrong wallet connected. Project admin is ${adminToCheck.slice(0, 6)}...${adminToCheck.slice(-4)}. Please switch to that wallet.`);
+    // MUST wait for on-chain admin to be loaded before estimating
+    if (!onChainAdmin) {
+      console.log("Waiting for on-chain admin to load...");
+      setGasError("Loading project admin from chain...");
+      return;
+    }
+    
+    // Block if wallet doesn't match on-chain project admin
+    if (onChainAdmin.toLowerCase() !== address.toLowerCase()) {
+      const shortAdmin = `${onChainAdmin.slice(0, 6)}...${onChainAdmin.slice(-4)}`;
+      setGasError(`Wrong wallet. Project admin is ${shortAdmin}. Please switch wallets.`);
+      console.error("Wallet mismatch - Connected:", address, "Admin:", onChainAdmin);
       return;
     }
     
@@ -724,7 +735,13 @@ export default function Platform() {
               {/* Debug info - remove after fixing */}
               <div className="p-2 rounded bg-yellow-100 dark:bg-yellow-900/20 text-xs font-mono space-y-1">
                 <p>DEBUG: Step={currentStep}, ProjectID={projectId?.toString() || 'null'}</p>
-                <p>estimatedGas={estimatedGas?.toString() || 'null'}, isSettingRoot={isSettingRoot.toString()}</p>
+                <p>Connected: {address || 'null'}</p>
+                <p>OnChainAdmin: {onChainAdmin || 'null'}</p>
+                <p>StoredAdmin: {projectAdmin || 'null'}</p>
+                <p>EffectiveAdmin: {effectiveAdmin || 'null'}</p>
+                <p>isWalletMismatch: {isWalletMismatch.toString()}</p>
+                <p>estimatedGas={estimatedGas?.toString() || 'null'}</p>
+                <p>gasError: {gasError || 'null'}</p>
                 <p>Button disabled: {(!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess || isWalletMismatch).toString()}</p>
               </div>
               
