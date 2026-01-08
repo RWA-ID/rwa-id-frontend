@@ -31,7 +31,6 @@ import {
   FileText,
   Link as LinkIcon,
   Download,
-  Shield,
 } from "lucide-react";
 
 const STEPS = ["Connect", "Create Project", "Upload CSV", "Set Root", "Complete"];
@@ -58,7 +57,6 @@ export default function Platform() {
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
   const [gasError, setGasError] = useState<string | null>(null);
-  const [safeCalldata, setSafeCalldata] = useState<string | null>(null);
 
   const publicClient = usePublicClient();
 
@@ -148,7 +146,6 @@ export default function Platform() {
     setGasError(null);
     setEstimatedGas(null);
     setGasPrice(null);
-    setSafeCalldata(null);
     
     try {
       const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
@@ -174,9 +171,6 @@ export default function Platform() {
       });
       console.log("Calldata:", calldata);
       console.log("Calldata length (bytes):", (calldata.length - 2) / 2);
-      
-      // Store calldata for Safe
-      setSafeCalldata(calldata);
       
       // Check calldata size - should be ~200 bytes, not thousands
       const calldataBytes = (calldata.length - 2) / 2;
@@ -262,21 +256,6 @@ export default function Platform() {
     });
   }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast]);
 
-  const copySafeCalldata = useCallback(() => {
-    if (!safeCalldata) return;
-    
-    const safeData = {
-      to: RWA_ID_REGISTRY_ADDRESS,
-      value: "0",
-      data: safeCalldata,
-    };
-    
-    navigator.clipboard.writeText(JSON.stringify(safeData, null, 2));
-    toast({
-      title: "Copied for Safe",
-      description: "Transaction data copied. Paste in Safe Transaction Builder.",
-    });
-  }, [safeCalldata, toast]);
   
   const downloadProofsJson = useCallback(() => {
     if (!proofsData || !slugHash || !projectId) return;
@@ -384,6 +363,23 @@ export default function Platform() {
       return () => clearTimeout(timer);
     }
   }, [createSuccess, projectId, slug, refetchProjectId, toast]);
+
+  // Auto-estimate gas when entering step 3 with all required data
+  useEffect(() => {
+    if (currentStep === 3 && projectId && merkleRoot && publicClient && address && !estimatedGas && !isEstimatingGas && !gasError) {
+      estimateGasForSetRoot();
+    }
+  }, [currentStep, projectId, merkleRoot, publicClient, address, estimatedGas, isEstimatingGas, gasError, estimateGasForSetRoot]);
+
+  // Re-estimate when validFrom/validTo change
+  useEffect(() => {
+    if (currentStep === 3 && projectId && merkleRoot && estimatedGas) {
+      // Reset estimation when time window changes
+      setEstimatedGas(null);
+      setGasPrice(null);
+      setGasError(null);
+    }
+  }, [validFrom, validTo]);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -658,62 +654,47 @@ export default function Platform() {
                 Leave both as 0 for no time restrictions. Use Unix timestamps for specific windows.
               </p>
               
-              {/* Gas Estimation Section */}
+              {/* Gas Estimation Status (auto-runs) */}
               {!setRootSuccess && (
-                <div className="space-y-3">
-                  <Button
-                    onClick={estimateGasForSetRoot}
-                    disabled={!merkleRoot || !projectId || isEstimatingGas || isSettingRoot || isWaitingSetRoot}
-                    variant="outline"
-                    className="w-full"
-                    data-testid="button-estimate-gas"
-                  >
-                    {isEstimatingGas ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Estimating Gas...
-                      </>
-                    ) : estimatedGas ? (
-                      <>
-                        <Check className="mr-2 h-4 w-4" />
-                        Re-estimate Gas
-                      </>
-                    ) : (
-                      "Estimate Gas"
-                    )}
-                  </Button>
+                <>
+                  {isEstimatingGas && (
+                    <div className="p-4 rounded-lg bg-muted flex items-center gap-3">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Estimating transaction cost...</span>
+                    </div>
+                  )}
                   
                   {gasError && (
                     <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-destructive">{gasError}</p>
+                        <div className="space-y-1">
+                          <p className="text-sm text-destructive">{gasError}</p>
+                          <Button
+                            onClick={estimateGasForSetRoot}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            data-testid="button-retry-estimate"
+                          >
+                            Retry
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
                   
                   {estimatedGas !== null && gasPrice !== null && (
-                    <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Estimated Gas</span>
-                        <span className="font-mono font-medium">{Number(estimatedGas).toLocaleString()} units</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Gas Price</span>
-                        <span className="font-mono font-medium">{formatGwei(gasPrice)} gwei</span>
-                      </div>
+                    <div className="p-3 rounded-lg bg-muted">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Est. Cost</span>
-                        <span className="font-mono font-medium text-green-600 dark:text-green-400">
+                        <span className="font-mono font-medium">
                           ~{formatEther(estimatedGas * gasPrice).slice(0, 10)} ETH
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground pt-1">
-                        Expected cost: a few cents to a few dollars on Linea.
-                      </p>
                     </div>
                   )}
-                </div>
+                </>
               )}
               
               <Button
@@ -737,28 +718,6 @@ export default function Platform() {
                 )}
               </Button>
               
-              {/* Safe Transaction Builder Option */}
-              {safeCalldata && !setRootSuccess && (
-                <div className="p-4 rounded-lg border border-dashed space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Using a Safe Multisig?</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    If the registry owner is a Safe wallet, copy the transaction data below and use it in Safe Transaction Builder.
-                  </p>
-                  <Button
-                    onClick={copySafeCalldata}
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    data-testid="button-copy-safe-data"
-                  >
-                    <Copy className="mr-2 h-3 w-3" />
-                    Copy Transaction for Safe
-                  </Button>
-                </div>
-              )}
               {setRootTxHash && (
                 <a
                   href={`https://lineascan.build/tx/${setRootTxHash}`}
