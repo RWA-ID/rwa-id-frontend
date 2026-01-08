@@ -86,15 +86,45 @@ export default function Claim() {
 
   const loadProofsFromUrl = async () => {
     if (!proofsUrl) return;
+    
+    // Trim whitespace
+    const urlString = proofsUrl.trim();
+    
+    // Validate URL format - accept http:// and https://
+    let validUrl: URL;
+    try {
+      validUrl = new URL(urlString);
+      if (!['http:', 'https:'].includes(validUrl.protocol)) {
+        throw new Error("URL must start with http:// or https://");
+      }
+    } catch (urlError) {
+      const msg = urlError instanceof Error ? urlError.message : "Invalid URL format";
+      toast({ 
+        title: "Invalid URL", 
+        description: `Please enter a valid URL (e.g., https://example.com/proofs.json). Error: ${msg}`, 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     setIsLoadingProofs(true);
     try {
-      const response = await fetch(proofsUrl);
-      if (!response.ok) throw new Error("Failed to fetch proofs");
-      const data = await response.json();
+      const response = await fetch(validUrl.toString());
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Response is not valid JSON");
+      }
       setParsedProofs(data);
       toast({ title: "Proofs Loaded", description: "Successfully loaded proofs from URL" });
     } catch (error) {
-      toast({ title: "Failed to Load Proofs", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      toast({ title: "Failed to Load Proofs", description: msg, variant: "destructive" });
     } finally {
       setIsLoadingProofs(false);
     }
