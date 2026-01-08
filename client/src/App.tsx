@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Console from "@/pages/console";
 import Claim from "@/pages/claim";
+import Privacy from "@/pages/privacy";
 
 if (projectId) {
   createAppKit({
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/console" component={Console} />
       <Route path="/claim" component={Claim} />
+      <Route path="/privacy" component={Privacy} />
       <Route component={NotFound} />
     </Switch>
   );

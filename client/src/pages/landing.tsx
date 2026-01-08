@@ -340,6 +340,9 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
             >
               partner@rwa-id.com
             </a>
+            <Link href="/privacy" className="hover:text-foreground transition-colors" data-testid="link-privacy">
+              Privacy Policy
+            </Link>
           </div>
         </div>
       </footer>
