@@ -130,6 +130,9 @@ export default function Platform() {
 
   const handleCreateProject = useCallback(() => {
     if (!slug) return;
+    console.log("=== handleCreateProject CALLED ===");
+    console.log("Function: createProjectWithSlug");
+    console.log("Args:", { slug: slug.trim().toLowerCase(), soulbound, baseURI });
     const fee = projectFee || parseEther("0.0005");
     createProject({
       address: RWA_ID_REGISTRY_ADDRESS,
@@ -267,14 +270,26 @@ export default function Platform() {
   }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin, toast]);
 
   const handleSetAllowlistRoot = useCallback(() => {
-    if (!projectId || !merkleRoot || !estimatedGas) return;
+    if (!projectId || !merkleRoot || !estimatedGas) {
+      console.log("handleSetAllowlistRoot BLOCKED - missing:", { projectId: !!projectId, merkleRoot: !!merkleRoot, estimatedGas: !!estimatedGas });
+      return;
+    }
     
     const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
     const toTs = validTo ? BigInt(validTo) : BigInt(0);
     
-    // Log before sending
-    console.log("=== Submitting Transaction ===");
-    console.log("Using estimated gas:", estimatedGas.toString());
+    // Log EXACT parameters being sent
+    console.log("=== handleSetAllowlistRoot CALLED ===");
+    console.log("Function: setAllowlistRootForBadgeWithWindow");
+    console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
+    console.log("Args:", {
+      projectId: projectId.toString(),
+      badgeType: BADGE_TYPE_DEFAULT,
+      merkleRoot: merkleRoot,
+      validFrom: fromTs.toString(),
+      validTo: toTs.toString(),
+    });
+    console.log("Gas:", estimatedGas.toString());
     
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
