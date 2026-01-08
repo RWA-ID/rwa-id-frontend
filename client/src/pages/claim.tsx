@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from "wagmi";
 import { keccak256, toBytes } from "viem";
-import { linea } from "wagmi/chains";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -305,7 +304,7 @@ export default function Claim() {
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => switchChain({ chainId: linea.id })}
+                    onClick={() => switchChain({ chainId: LINEA_CHAIN_ID })}
                     data-testid="button-switch-network"
                   >
                     Switch to Linea

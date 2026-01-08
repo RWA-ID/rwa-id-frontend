@@ -1,8 +1,8 @@
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
-import { linea } from "wagmi/chains";
 import { Button } from "@/components/ui/button";
 import { Wallet, LogOut, AlertTriangle, Loader2 } from "lucide-react";
 import { projectId } from "@/lib/wagmi-config";
+import { LINEA_CHAIN_ID } from "@/lib/abi";
 
 export function WalletButton() {
   const { address, isConnected, chain, isConnecting } = useAccount();
@@ -10,7 +10,7 @@ export function WalletButton() {
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
-  const isWrongNetwork = isConnected && chain?.id !== linea.id;
+  const isWrongNetwork = isConnected && chain?.id !== LINEA_CHAIN_ID;
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -35,7 +35,7 @@ export function WalletButton() {
   if (isWrongNetwork) {
     return (
       <Button
-        onClick={() => switchChain({ chainId: linea.id })}
+        onClick={() => switchChain({ chainId: LINEA_CHAIN_ID })}
         variant="destructive"
         disabled={isSwitching}
         className="min-w-[160px]"
@@ -55,7 +55,6 @@ export function WalletButton() {
     return (
       <div className="flex items-center gap-2">
         {projectId ? (
-          // @ts-expect-error - appkit-account-button is a web component
           <appkit-account-button data-testid="button-wallet-info" />
         ) : (
           <>
@@ -79,7 +78,6 @@ export function WalletButton() {
 
   if (projectId) {
     return (
-      // @ts-expect-error - appkit-button is a web component
       <appkit-button data-testid="button-connect-wallet" />
     );
   }
