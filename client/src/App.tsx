@@ -35,6 +35,7 @@ if (projectId) {
     enableInjected: true,
     enableEIP6963: true,
     allowUnsupportedChain: false,
+    enableNetworkSwitch: false,
   });
 }
 
