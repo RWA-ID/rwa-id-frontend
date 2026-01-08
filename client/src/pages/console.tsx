@@ -196,7 +196,7 @@ export default function Platform() {
       console.log("Gas estimate:", gasEstimate.toString());
       
       // Check if gas is too high (> 500k is suspicious for this call)
-      if (gasEstimate > 500000n) {
+      if (gasEstimate > BigInt(500000)) {
         setGasError(`Gas estimate is unusually high (${gasEstimate.toString()}). This may indicate a contract error. Try refreshing or contact support.`);
         setIsEstimatingGas(false);
         return;
@@ -244,7 +244,7 @@ export default function Platform() {
       abi: RWA_ID_REGISTRY_ABI,
       functionName: "setAllowlistRootForBadgeWithWindow",
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
-      gas: estimatedGas + (estimatedGas / 10n), // Add 10% buffer
+      gas: estimatedGas + (estimatedGas / BigInt(10)), // Add 10% buffer
     }, {
       onSuccess: () => {
         toast({
@@ -356,7 +356,7 @@ export default function Platform() {
       const fetchId = async () => {
         try {
           const result = await refetchProjectId();
-          if (result.data && result.data > 0n) {
+          if (result.data && result.data > BigInt(0)) {
             setProjectId(result.data);
             return true;
           }
@@ -692,7 +692,7 @@ export default function Platform() {
                     </div>
                   )}
                   
-                  {estimatedGas && gasPrice && (
+                  {estimatedGas !== null && gasPrice !== null && (
                     <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Estimated Gas</span>
