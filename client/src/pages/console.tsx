@@ -169,24 +169,20 @@ export default function Platform() {
   const effectiveAdmin = onChainAdmin || projectAdmin;
   const isWalletMismatch = !!(effectiveAdmin && address && effectiveAdmin.toLowerCase() !== address.toLowerCase());
 
-  // Track if on-chain admin has been loaded
-  const isAdminLoaded = !!onChainAdmin;
+  // Use on-chain admin if available, otherwise fall back to stored admin from createProject
+  const adminToVerify = onChainAdmin || projectAdmin;
   
   const estimateGasForSetRoot = useCallback(async () => {
     if (!projectId || !merkleRoot || !publicClient || !address) return;
     
-    // MUST wait for on-chain admin to be loaded before estimating
-    if (!onChainAdmin) {
-      console.log("Waiting for on-chain admin to load...");
-      setGasError("Loading project admin from chain...");
-      return;
-    }
+    // Use on-chain admin if available, otherwise use stored admin
+    const admin = onChainAdmin || projectAdmin;
     
-    // Block if wallet doesn't match on-chain project admin
-    if (onChainAdmin.toLowerCase() !== address.toLowerCase()) {
-      const shortAdmin = `${onChainAdmin.slice(0, 6)}...${onChainAdmin.slice(-4)}`;
+    // Block if wallet doesn't match project admin
+    if (admin && admin.toLowerCase() !== address.toLowerCase()) {
+      const shortAdmin = `${admin.slice(0, 6)}...${admin.slice(-4)}`;
       setGasError(`Wrong wallet. Project admin is ${shortAdmin}. Please switch wallets.`);
-      console.error("Wallet mismatch - Connected:", address, "Admin:", onChainAdmin);
+      console.error("Wallet mismatch - Connected:", address, "Admin:", admin);
       return;
     }
     
