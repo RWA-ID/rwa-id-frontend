@@ -202,7 +202,7 @@ export default function Platform() {
       // Encode the calldata
       const calldata = encodeFunctionData({
         abi: RWA_ID_REGISTRY_ABI,
-        functionName: "setAllowlistRootForBadgeWithWindow",
+        functionName: "setAllowlistRootForBadge",
         args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
       });
       
@@ -324,11 +324,11 @@ export default function Platform() {
     const toTs = validTo ? BigInt(validTo) : BigInt(0);
     
     // Compute selector to verify correct function is being called
-    // setAllowlistRootForBadgeWithWindow(uint256,bytes32,bytes32,uint64,uint64) = 0xf1201092
-    const expectedSelector = "0xf1201092";
+    // setAllowlistRootForBadge(uint256,bytes32,bytes32,uint64,uint64) = 0x97ada692
+    const expectedSelector = "0x97ada692";
     const calldata = encodeFunctionData({
       abi: RWA_ID_REGISTRY_ABI,
-      functionName: "setAllowlistRootForBadgeWithWindow",
+      functionName: "setAllowlistRootForBadge",
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
     });
     const actualSelector = calldata.slice(0, 10);
@@ -338,6 +338,7 @@ export default function Platform() {
     console.log("Actual selector:", actualSelector);
     console.log("Selector match:", actualSelector === expectedSelector);
     console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
+    console.log("Function: setAllowlistRootForBadge");
     console.log("Value: 0 (nonpayable)");
     console.log("Args:", {
       projectId: projectId.toString(),
@@ -357,11 +358,11 @@ export default function Platform() {
       return;
     }
     
-    // Call setAllowlistRoot - NEVER createProject
+    // Call setAllowlistRootForBadge - NEVER createProject
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
-      functionName: "setAllowlistRootForBadgeWithWindow",
+      functionName: "setAllowlistRootForBadge",
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
       gas: estimatedGas + (estimatedGas / BigInt(10)), // Add 10% buffer
     }, {

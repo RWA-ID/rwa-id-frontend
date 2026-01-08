@@ -18,7 +18,7 @@ export const RWA_ID_REGISTRY_ABI = [
     outputs: [{ name: "", type: "uint256" }],
   },
   {
-    name: "setAllowlistRootForBadgeWithWindow",
+    name: "setAllowlistRootForBadge",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -27,17 +27,6 @@ export const RWA_ID_REGISTRY_ABI = [
       { name: "root", type: "bytes32" },
       { name: "validFrom", type: "uint64" },
       { name: "validTo", type: "uint64" },
-    ],
-    outputs: [],
-  },
-  {
-    name: "setAllowlistRootForBadge",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "projectId", type: "uint256" },
-      { name: "badgeType", type: "bytes32" },
-      { name: "root", type: "bytes32" },
     ],
     outputs: [],
   },
