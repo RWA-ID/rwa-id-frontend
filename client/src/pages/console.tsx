@@ -89,6 +89,20 @@ export default function Platform() {
     hash: setRootTxHash,
   });
 
+  // Fetch on-chain project admin to verify ownership
+  const { data: projectData } = useReadContract({
+    address: RWA_ID_REGISTRY_ADDRESS,
+    abi: RWA_ID_REGISTRY_ABI,
+    functionName: "projects",
+    args: projectId ? [projectId] : undefined,
+    query: {
+      enabled: !!projectId,
+    },
+  });
+  
+  // Extract admin from project data (projects returns [admin, soulbound, paused, baseURI])
+  const onChainAdmin = projectData?.[0] as string | undefined;
+
   const uploadMutation = useMutation({
     mutationFn: async (data: { slug: string; csvText: string }) => {
       const response = await apiRequest("POST", "/api/platform/upload", data);
@@ -140,15 +154,17 @@ export default function Platform() {
     });
   }, [slug, baseURI, soulbound, projectFee, createProject, toast]);
 
-  // Check if current wallet matches project admin
-  const isWalletMismatch = !!(projectAdmin && address && projectAdmin.toLowerCase() !== address.toLowerCase());
+  // Check if current wallet matches project admin (use on-chain data if available, fallback to stored)
+  const effectiveAdmin = onChainAdmin || projectAdmin;
+  const isWalletMismatch = !!(effectiveAdmin && address && effectiveAdmin.toLowerCase() !== address.toLowerCase());
 
   const estimateGasForSetRoot = useCallback(async () => {
     if (!projectId || !merkleRoot || !publicClient || !address) return;
     
-    // Block if wallet doesn't match project admin
-    if (projectAdmin && projectAdmin.toLowerCase() !== address.toLowerCase()) {
-      setGasError(`Wrong wallet connected. This project was created by ${projectAdmin.slice(0, 6)}...${projectAdmin.slice(-4)}. Please switch back to that wallet.`);
+    // Block if wallet doesn't match project admin (use on-chain admin if available)
+    const adminToCheck = onChainAdmin || projectAdmin;
+    if (adminToCheck && adminToCheck.toLowerCase() !== address.toLowerCase()) {
+      setGasError(`Wrong wallet connected. Project admin is ${adminToCheck.slice(0, 6)}...${adminToCheck.slice(-4)}. Please switch to that wallet.`);
       return;
     }
     
@@ -222,19 +238,33 @@ export default function Platform() {
       console.error("Gas estimation failed:", error);
       console.log("Connected address:", address);
       console.log("Project ID being used:", projectId?.toString());
+      console.log("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
       
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
+      // Extract revert reason if available
+      let revertReason = "";
+      if (errorMessage.includes("reverted with the following reason:")) {
+        const match = errorMessage.match(/reverted with the following reason:\s*(.+)/);
+        if (match) revertReason = match[1];
+      } else if (errorMessage.includes("execution reverted:")) {
+        const match = errorMessage.match(/execution reverted:\s*(.+?)(\n|$)/);
+        if (match) revertReason = match[1];
+      }
+      
       // Check for common revert reasons
       if (errorMessage.includes("execution reverted")) {
-        setGasError(`Transaction would fail. Make sure you're using the same wallet that created this project. Connected: ${address?.slice(0, 6)}...${address?.slice(-4)}, Project ID: ${projectId?.toString()}`);
+        const detailMsg = revertReason 
+          ? `Contract error: ${revertReason}` 
+          : `Transaction would fail. Connected: ${address?.slice(0, 6)}...${address?.slice(-4)}, Project ID: ${projectId?.toString()}. The contract may require additional permissions or the function signature may be incorrect.`;
+        setGasError(detailMsg);
       } else {
         setGasError(`Gas estimation failed: ${errorMessage}`);
       }
     } finally {
       setIsEstimatingGas(false);
     }
-  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, toast]);
+  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin, toast]);
 
   const handleSetAllowlistRoot = useCallback(() => {
     if (!projectId || !merkleRoot || !estimatedGas) return;
@@ -627,8 +657,8 @@ export default function Platform() {
                     <div className="text-sm text-destructive">
                       <p className="font-medium">Wrong wallet connected</p>
                       <p className="text-xs mt-1">
-                        This project was created by {projectAdmin?.slice(0, 6)}...{projectAdmin?.slice(-4)}. 
-                        Please switch back to that wallet to set the allowlist root.
+                        Project admin is {effectiveAdmin?.slice(0, 6)}...{effectiveAdmin?.slice(-4)}. 
+                        Please switch to that wallet to set the allowlist root.
                       </p>
                     </div>
                   </div>
@@ -647,6 +677,12 @@ export default function Platform() {
                     )}
                   </span>
                 </div>
+                {onChainAdmin && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Project Admin</span>
+                    <span className="font-mono text-xs">{onChainAdmin.slice(0, 6)}...{onChainAdmin.slice(-4)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Badge Type</span>
                   <span className="font-mono text-xs">0x00...00</span>

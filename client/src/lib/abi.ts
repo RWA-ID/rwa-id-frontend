@@ -74,6 +74,18 @@ export const RWA_ID_REGISTRY_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    name: "projects",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "projectId", type: "uint256" }],
+    outputs: [
+      { name: "admin", type: "address" },
+      { name: "soulbound", type: "bool" },
+      { name: "paused", type: "bool" },
+      { name: "baseURI", type: "string" },
+    ],
+  },
 ] as const;
 
 export const LINEA_CHAIN_ID = 59144;
