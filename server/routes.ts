@@ -15,6 +15,10 @@ const proofQuerySchema = z.object({
   address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address"),
 });
 
+const claimableQuerySchema = z.object({
+  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "Invalid address"),
+});
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -134,6 +138,66 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Project fetch error:", error);
       return res.status(500).json({ error: "Failed to fetch project" });
+    }
+  });
+
+  // Get all claimable identities for an address across all projects
+  app.get("/api/claimable", async (req, res) => {
+    try {
+      const validation = claimableQuerySchema.safeParse(req.query);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: validation.error.errors[0]?.message || "Invalid address",
+          claims: [],
+        });
+      }
+
+      const { address } = validation.data;
+      const normalizedAddress = address.toLowerCase();
+      
+      const allProjects = await storage.getAllProjects();
+      const claims: Array<{
+        slug: string;
+        projectId: string;
+        badgeType: string;
+        name: string;
+        nameHash: string;
+        proof: string[];
+      }> = [];
+
+      for (const project of allProjects) {
+        // Find entries for this address in this project
+        const matchingEntries = project.entries.filter(
+          entry => entry.address.toLowerCase() === normalizedAddress
+        );
+
+        for (const entry of matchingEntries) {
+          const { proof, nameHash } = generateProof(
+            project.tree,
+            project.entries,
+            entry.address,
+            entry.name
+          );
+
+          claims.push({
+            slug: project.slug,
+            projectId: "0", // Will be fetched on-chain by frontend
+            badgeType: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            name: entry.name.trim().toLowerCase(),
+            nameHash,
+            proof,
+          });
+        }
+      }
+
+      return res.json({ claims });
+    } catch (error) {
+      console.error("Claimable error:", error);
+      return res.status(500).json({ 
+        error: "Failed to fetch claimable identities",
+        claims: [],
+      });
     }
   });
 
