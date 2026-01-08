@@ -109,7 +109,7 @@ export default function Platform() {
 
   const handleCreateProject = useCallback(() => {
     if (!slug) return;
-    const fee = projectFee || parseEther("0.01");
+    const fee = projectFee || parseEther("0.0005");
     createProject({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
@@ -334,7 +334,7 @@ export default function Platform() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Project Fee</span>
                   <span className="font-mono font-medium">
-                    {projectFee ? `${formatEther(projectFee)} ETH` : "~0.01 ETH"}
+                    {projectFee ? `${formatEther(projectFee)} ETH` : "~0.0005 ETH"}
                   </span>
                 </div>
               </div>
