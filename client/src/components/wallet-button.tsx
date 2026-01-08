@@ -55,24 +55,18 @@ export function WalletButton() {
   if (isConnected && address) {
     return (
       <div className="flex items-center gap-2">
-        {projectId ? (
-          <appkit-account-button data-testid="button-wallet-info" />
-        ) : (
-          <>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted text-sm font-mono">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              {truncateAddress(address)}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => disconnect()}
-              data-testid="button-disconnect-wallet"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </>
-        )}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted text-sm font-mono">
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          {truncateAddress(address)}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => disconnect()}
+          data-testid="button-disconnect-wallet"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     );
   }
