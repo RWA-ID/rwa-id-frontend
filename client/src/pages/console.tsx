@@ -278,18 +278,56 @@ export default function Platform() {
   }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin, toast]);
 
   const handleSetAllowlistRoot = useCallback(() => {
-    if (!projectId || !merkleRoot || !estimatedGas) {
-      console.log("handleSetAllowlistRoot BLOCKED - missing:", { projectId: !!projectId, merkleRoot: !!merkleRoot, estimatedGas: !!estimatedGas });
+    // HARD GUARD: Ensure we have a valid projectId - NEVER fallback to createProject
+    if (!projectId || projectId === BigInt(0)) {
+      console.error("handleSetAllowlistRoot BLOCKED - Project not created yet");
+      toast({
+        title: "Project Not Created",
+        description: "Please complete Step 2 to create your project first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!merkleRoot) {
+      console.error("handleSetAllowlistRoot BLOCKED - No merkle root");
+      toast({
+        title: "Missing Merkle Root",
+        description: "Please upload a CSV in Step 3 first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!estimatedGas) {
+      console.error("handleSetAllowlistRoot BLOCKED - No gas estimate");
+      toast({
+        title: "Gas Not Estimated",
+        description: "Please wait for gas estimation to complete.",
+        variant: "destructive",
+      });
       return;
     }
     
     const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
     const toTs = validTo ? BigInt(validTo) : BigInt(0);
     
-    // Log EXACT parameters being sent
+    // Compute selector to verify correct function is being called
+    // setAllowlistRootForBadgeWithWindow(uint256,bytes32,bytes32,uint64,uint64) = 0xf1201092
+    const expectedSelector = "0xf1201092";
+    const calldata = encodeFunctionData({
+      abi: RWA_ID_REGISTRY_ABI,
+      functionName: "setAllowlistRootForBadgeWithWindow",
+      args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
+    });
+    const actualSelector = calldata.slice(0, 10);
+    
     console.log("=== handleSetAllowlistRoot CALLED ===");
-    console.log("Function: setAllowlistRootForBadgeWithWindow");
+    console.log("Expected selector:", expectedSelector);
+    console.log("Actual selector:", actualSelector);
+    console.log("Selector match:", actualSelector === expectedSelector);
     console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
+    console.log("Value: 0 (nonpayable)");
     console.log("Args:", {
       projectId: projectId.toString(),
       badgeType: BADGE_TYPE_DEFAULT,
@@ -297,8 +335,18 @@ export default function Platform() {
       validFrom: fromTs.toString(),
       validTo: toTs.toString(),
     });
-    console.log("Gas:", estimatedGas.toString());
     
+    if (actualSelector !== expectedSelector) {
+      console.error("SELECTOR MISMATCH! Expected:", expectedSelector, "Got:", actualSelector);
+      toast({
+        title: "Internal Error",
+        description: "Function selector mismatch. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Call setAllowlistRoot - NEVER createProject
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
@@ -313,6 +361,7 @@ export default function Platform() {
         });
       },
       onError: (error) => {
+        console.error("setAllowlistRoot transaction error:", error);
         toast({
           title: "Transaction Failed",
           description: error.message,
