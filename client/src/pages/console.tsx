@@ -231,22 +231,40 @@ export default function Platform() {
 
   useEffect(() => {
     if (createSuccess && projectId === null && slug) {
+      let attempts = 0;
+      const maxAttempts = 10;
+      
       const fetchId = async () => {
         try {
           const result = await refetchProjectId();
           if (result.data && result.data > 0n) {
             setProjectId(result.data);
-          } else {
-            setProjectId(BigInt(1));
+            return true;
           }
         } catch {
-          setProjectId(BigInt(1));
+          // Retry on error
+        }
+        return false;
+      };
+      
+      const retryFetch = async () => {
+        const success = await fetchId();
+        if (!success && attempts < maxAttempts) {
+          attempts++;
+          setTimeout(retryFetch, 2000);
+        } else if (!success) {
+          toast({
+            title: "Could not verify project",
+            description: "Please refresh the page and try again.",
+            variant: "destructive",
+          });
         }
       };
-      const timer = setTimeout(fetchId, 1500);
+      
+      const timer = setTimeout(retryFetch, 1500);
       return () => clearTimeout(timer);
     }
-  }, [createSuccess, projectId, slug, refetchProjectId]);
+  }, [createSuccess, projectId, slug, refetchProjectId, toast]);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -471,7 +489,14 @@ export default function Platform() {
               <div className="p-4 rounded-lg bg-muted space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Project ID</span>
-                  <span className="font-mono font-medium">{projectId?.toString() || "1"}</span>
+                  <span className="font-mono font-medium">
+                    {projectId ? projectId.toString() : (
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Fetching...
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Badge Type</span>
@@ -515,7 +540,7 @@ export default function Platform() {
               </p>
               <Button
                 onClick={handleSetAllowlistRoot}
-                disabled={!merkleRoot || isSettingRoot || isWaitingSetRoot || setRootSuccess}
+                disabled={!merkleRoot || !projectId || isSettingRoot || isWaitingSetRoot || setRootSuccess}
                 className="w-full"
                 data-testid="button-set-root"
               >
