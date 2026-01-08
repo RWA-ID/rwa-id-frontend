@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "wouter";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient } from "wagmi";
 import { linea } from "wagmi/chains";
-import { keccak256, toBytes, parseEther, formatEther } from "viem";
+import { keccak256, toBytes, parseEther, formatEther, encodeFunctionData, formatGwei } from "viem";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,7 @@ import {
   FileText,
   Link as LinkIcon,
   Download,
+  Shield,
 } from "lucide-react";
 
 const STEPS = ["Connect", "Create Project", "Upload CSV", "Set Root", "Complete"];
@@ -53,6 +54,13 @@ export default function Platform() {
   const [validFrom, setValidFrom] = useState("0");
   const [validTo, setValidTo] = useState("0");
   const [proofsData, setProofsData] = useState<Record<string, { name: string; nameHash: string; proof: string[] }> | null>(null);
+  const [estimatedGas, setEstimatedGas] = useState<bigint | null>(null);
+  const [gasPrice, setGasPrice] = useState<bigint | null>(null);
+  const [isEstimatingGas, setIsEstimatingGas] = useState(false);
+  const [gasError, setGasError] = useState<string | null>(null);
+  const [safeCalldata, setSafeCalldata] = useState<string | null>(null);
+
+  const publicClient = usePublicClient();
 
   const { data: projectFee } = useReadContract({
     address: RWA_ID_REGISTRY_ADDRESS,
@@ -133,15 +141,110 @@ export default function Platform() {
     });
   }, [slug, baseURI, soulbound, projectFee, createProject, toast]);
 
+  const estimateGasForSetRoot = useCallback(async () => {
+    if (!projectId || !merkleRoot || !publicClient || !address) return;
+    
+    setIsEstimatingGas(true);
+    setGasError(null);
+    setEstimatedGas(null);
+    setGasPrice(null);
+    setSafeCalldata(null);
+    
+    try {
+      const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
+      const toTs = validTo ? BigInt(validTo) : BigInt(0);
+      
+      // Encode the calldata
+      const calldata = encodeFunctionData({
+        abi: RWA_ID_REGISTRY_ABI,
+        functionName: "setAllowlistRootForBadgeWithWindow",
+        args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
+      });
+      
+      // Log debug info
+      console.log("=== Set Allowlist Root Debug ===");
+      console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
+      console.log("Function: setAllowlistRootForBadgeWithWindow");
+      console.log("Args:", {
+        projectId: projectId.toString(),
+        badgeType: BADGE_TYPE_DEFAULT,
+        merkleRoot,
+        validFrom: fromTs.toString(),
+        validTo: toTs.toString(),
+      });
+      console.log("Calldata:", calldata);
+      console.log("Calldata length (bytes):", (calldata.length - 2) / 2);
+      
+      // Store calldata for Safe
+      setSafeCalldata(calldata);
+      
+      // Check calldata size - should be ~200 bytes, not thousands
+      const calldataBytes = (calldata.length - 2) / 2;
+      if (calldataBytes > 500) {
+        setGasError(`Warning: Calldata is unusually large (${calldataBytes} bytes). Expected ~200 bytes.`);
+        setIsEstimatingGas(false);
+        return;
+      }
+      
+      // Estimate gas
+      const gasEstimate = await publicClient.estimateGas({
+        account: address,
+        to: RWA_ID_REGISTRY_ADDRESS,
+        data: calldata,
+      });
+      
+      console.log("Gas estimate:", gasEstimate.toString());
+      
+      // Check if gas is too high (> 500k is suspicious for this call)
+      if (gasEstimate > 500000n) {
+        setGasError(`Gas estimate is unusually high (${gasEstimate.toString()}). This may indicate a contract error. Try refreshing or contact support.`);
+        setIsEstimatingGas(false);
+        return;
+      }
+      
+      // Get current gas price
+      const currentGasPrice = await publicClient.getGasPrice();
+      console.log("Gas price:", formatGwei(currentGasPrice), "gwei");
+      
+      setEstimatedGas(gasEstimate);
+      setGasPrice(currentGasPrice);
+      
+      toast({
+        title: "Gas Estimated",
+        description: `~${Number(gasEstimate).toLocaleString()} gas units`,
+      });
+      
+    } catch (error) {
+      console.error("Gas estimation failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      // Check for common revert reasons
+      if (errorMessage.includes("execution reverted")) {
+        setGasError("Transaction would fail. You may not have permission to set the root for this project, or the project ID is incorrect.");
+      } else {
+        setGasError(`Gas estimation failed: ${errorMessage}`);
+      }
+    } finally {
+      setIsEstimatingGas(false);
+    }
+  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, toast]);
+
   const handleSetAllowlistRoot = useCallback(() => {
-    if (!projectId || !merkleRoot) return;
+    if (!projectId || !merkleRoot || !estimatedGas) return;
+    
     const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
     const toTs = validTo ? BigInt(validTo) : BigInt(0);
+    
+    // Log before sending
+    console.log("=== Submitting Transaction ===");
+    console.log("Using estimated gas:", estimatedGas.toString());
+    
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
       functionName: "setAllowlistRootForBadgeWithWindow",
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
+      gas: estimatedGas + (estimatedGas / 10n), // Add 10% buffer
     }, {
       onSuccess: () => {
         toast({
@@ -157,7 +260,23 @@ export default function Platform() {
         });
       },
     });
-  }, [projectId, merkleRoot, validFrom, validTo, setAllowlistRoot, toast]);
+  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast]);
+
+  const copySafeCalldata = useCallback(() => {
+    if (!safeCalldata) return;
+    
+    const safeData = {
+      to: RWA_ID_REGISTRY_ADDRESS,
+      value: "0",
+      data: safeCalldata,
+    };
+    
+    navigator.clipboard.writeText(JSON.stringify(safeData, null, 2));
+    toast({
+      title: "Copied for Safe",
+      description: "Transaction data copied. Paste in Safe Transaction Builder.",
+    });
+  }, [safeCalldata, toast]);
   
   const downloadProofsJson = useCallback(() => {
     if (!proofsData || !slugHash || !projectId) return;
@@ -538,9 +657,68 @@ export default function Platform() {
               <p className="text-xs text-muted-foreground">
                 Leave both as 0 for no time restrictions. Use Unix timestamps for specific windows.
               </p>
+              
+              {/* Gas Estimation Section */}
+              {!setRootSuccess && (
+                <div className="space-y-3">
+                  <Button
+                    onClick={estimateGasForSetRoot}
+                    disabled={!merkleRoot || !projectId || isEstimatingGas || isSettingRoot || isWaitingSetRoot}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-estimate-gas"
+                  >
+                    {isEstimatingGas ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Estimating Gas...
+                      </>
+                    ) : estimatedGas ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Re-estimate Gas
+                      </>
+                    ) : (
+                      "Estimate Gas"
+                    )}
+                  </Button>
+                  
+                  {gasError && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-destructive">{gasError}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {estimatedGas && gasPrice && (
+                    <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Estimated Gas</span>
+                        <span className="font-mono font-medium">{Number(estimatedGas).toLocaleString()} units</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Gas Price</span>
+                        <span className="font-mono font-medium">{formatGwei(gasPrice)} gwei</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Est. Cost</span>
+                        <span className="font-mono font-medium text-green-600 dark:text-green-400">
+                          ~{formatEther(estimatedGas * gasPrice).slice(0, 10)} ETH
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Expected cost: a few cents to a few dollars on Linea.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <Button
                 onClick={handleSetAllowlistRoot}
-                disabled={!merkleRoot || !projectId || isSettingRoot || isWaitingSetRoot || setRootSuccess}
+                disabled={!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess}
                 className="w-full"
                 data-testid="button-set-root"
               >
@@ -558,6 +736,29 @@ export default function Platform() {
                   "Set Allowlist Root"
                 )}
               </Button>
+              
+              {/* Safe Transaction Builder Option */}
+              {safeCalldata && !setRootSuccess && (
+                <div className="p-4 rounded-lg border border-dashed space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Using a Safe Multisig?</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    If the registry owner is a Safe wallet, copy the transaction data below and use it in Safe Transaction Builder.
+                  </p>
+                  <Button
+                    onClick={copySafeCalldata}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    data-testid="button-copy-safe-data"
+                  >
+                    <Copy className="mr-2 h-3 w-3" />
+                    Copy Transaction for Safe
+                  </Button>
+                </div>
+              )}
               {setRootTxHash && (
                 <a
                   href={`https://lineascan.build/tx/${setRootTxHash}`}
