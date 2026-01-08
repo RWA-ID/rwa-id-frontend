@@ -293,7 +293,9 @@ export default function Claim() {
                   <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
                     We'll automatically find all identities available for your wallet address
                   </p>
-                  <WalletButton />
+                  <div className="flex justify-center">
+                    <WalletButton />
+                  </div>
                 </div>
               ) : isWrongNetwork ? (
                 <div className="text-center py-8">
