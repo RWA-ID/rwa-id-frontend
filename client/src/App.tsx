@@ -18,6 +18,7 @@ if (projectId) {
     adapters: [wagmiAdapter],
     projectId,
     networks,
+    defaultNetwork: networks[0],
     metadata,
     features: {
       analytics: false,
