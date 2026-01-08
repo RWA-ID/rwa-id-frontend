@@ -43,3 +43,6 @@ waitForPort = 5000
 [userenv.shared]
 VITE_LINEA_RPC_URL = "https://rpc.linea.build"
 VITE_RWA_ID_REGISTRY = "0x74aACeff8139c84433befB922a8E687B6ba51F3a"
+
+[agent]
+integrations = ["javascript_database:1.0.0"]

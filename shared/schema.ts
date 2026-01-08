@@ -1,3 +1,5 @@
+import { pgTable, text, serial, jsonb, bigint } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const allowlistEntrySchema = z.object({
@@ -6,6 +8,19 @@ export const allowlistEntrySchema = z.object({
 });
 
 export type AllowlistEntry = z.infer<typeof allowlistEntrySchema>;
+
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  merkleRoot: text("merkle_root").notNull(),
+  entries: jsonb("entries").$type<AllowlistEntry[]>().notNull(),
+  treeData: text("tree_data").notNull(),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+});
+
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type Project = typeof projects.$inferSelect;
 
 export const projectDataSchema = z.object({
   slug: z.string().min(1),
@@ -45,11 +60,3 @@ export const proofResponseSchema = z.object({
 });
 
 export type ProofResponse = z.infer<typeof proofResponseSchema>;
-
-export const users = {};
-export const insertUserSchema = z.object({
-  username: z.string(),
-  password: z.string(),
-});
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = { id: string; username: string; password: string };
