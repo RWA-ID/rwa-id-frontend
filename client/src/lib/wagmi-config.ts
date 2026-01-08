@@ -5,10 +5,22 @@ import { http } from "viem";
 
 export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || "";
 
+// Use current origin in development, production domain in production
+const getMetadataUrl = () => {
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "rwa-id.com" || hostname === "www.rwa-id.com") {
+      return "https://rwa-id.com";
+    }
+    return window.location.origin;
+  }
+  return "https://rwa-id.com";
+};
+
 export const metadata = {
   name: "RWA-ID",
   description: "Decentralized Identity Registry on Linea",
-  url: "https://rwa-id.com",
+  url: getMetadataUrl(),
   icons: ["https://avatars.githubusercontent.com/u/179229932"],
 };
 
