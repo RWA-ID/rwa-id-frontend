@@ -19,7 +19,9 @@ import {
   Layers,
   Fingerprint,
   Zap,
+  FileText,
 } from "lucide-react";
+import { SiGithub, SiX } from "react-icons/si";
 import { useState } from "react";
 
 const CONTRACT_ADDRESS = "0x74aACeff8139c84433befB922a8E687B6ba51F3a";
@@ -327,22 +329,59 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
 
       <footer className="border-t py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Fingerprint className="h-5 w-5 text-primary" />
-              <span className="font-heading font-semibold">RWA-ID</span>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Fingerprint className="h-5 w-5 text-primary" />
+                <span className="font-heading font-semibold">RWA-ID</span>
+              </div>
+              <p>Decentralized Identity Registry for Real World Assets</p>
+              <div className="flex items-center gap-4">
+                <a
+                  href="https://github.com/RWA-ID/RWA-ID"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-foreground transition-colors"
+                  data-testid="link-github"
+                  title="GitHub"
+                >
+                  <SiGithub className="w-5 h-5" />
+                </a>
+                <a
+                  href="https://x.com/rwa_ideth"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-foreground transition-colors"
+                  data-testid="link-x"
+                  title="X (Twitter)"
+                >
+                  <SiX className="w-5 h-5" />
+                </a>
+                <a
+                  href="https://github.com/rwa-id/RWA-ID/blob/main/whitepaper.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  data-testid="link-whitepaper"
+                  title="White Paper"
+                >
+                  <FileText className="w-5 h-5" />
+                  <span className="hidden sm:inline">White Paper</span>
+                </a>
+              </div>
             </div>
-            <p>Decentralized Identity Registry for Real World Assets</p>
-            <a
-              href="mailto:partner@rwa-id.com"
-              className="hover:text-foreground transition-colors"
-              data-testid="link-contact-email"
-            >
-              partner@rwa-id.com
-            </a>
-            <Link href="/privacy" className="hover:text-foreground transition-colors" data-testid="link-privacy">
-              Privacy Policy
-            </Link>
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm text-muted-foreground border-t pt-6">
+              <a
+                href="mailto:partner@rwa-id.com"
+                className="hover:text-foreground transition-colors"
+                data-testid="link-contact-email"
+              >
+                partner@rwa-id.com
+              </a>
+              <Link href="/privacy" className="hover:text-foreground transition-colors" data-testid="link-privacy">
+                Privacy Policy
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
