@@ -2,7 +2,7 @@ import type { MerkleEntry } from "./merkle";
 import { buildMerkleTree } from "./merkle";
 import type { Hex } from "viem";
 import type { MerkleTree } from "merkletreejs";
-import { sqlite } from "./db";
+import { getDb, saveDb } from "./db";
 
 export interface ProjectData {
   slug: string;
@@ -29,12 +29,17 @@ interface ProjectRow {
 
 export class DatabaseStorage implements IStorage {
   async getProject(slug: string): Promise<ProjectData | undefined> {
-    const stmt = sqlite.prepare("SELECT * FROM projects WHERE slug = ?");
-    const row = stmt.get(slug.toLowerCase()) as ProjectRow | undefined;
+    const db = await getDb();
+    const stmt = db.prepare("SELECT * FROM projects WHERE slug = ?");
+    stmt.bind([slug.toLowerCase()]);
 
-    if (!row) {
+    if (!stmt.step()) {
+      stmt.free();
       return undefined;
     }
+
+    const row = stmt.getAsObject() as unknown as ProjectRow;
+    stmt.free();
 
     const entries = JSON.parse(row.entries) as MerkleEntry[];
     const treeResult = buildMerkleTree(entries);
@@ -49,56 +54,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveProject(data: ProjectData): Promise<void> {
+    const db = await getDb();
     const entriesJson = JSON.stringify(data.entries);
     const treeDataJson = JSON.stringify({ root: data.merkleRoot });
 
-    const existing = sqlite
-      .prepare("SELECT id FROM projects WHERE slug = ?")
-      .get(data.slug.toLowerCase()) as { id: number } | undefined;
+    const checkStmt = db.prepare("SELECT id FROM projects WHERE slug = ?");
+    checkStmt.bind([data.slug.toLowerCase()]);
+    const exists = checkStmt.step();
+    checkStmt.free();
 
-    if (existing) {
-      sqlite
-        .prepare(
-          "UPDATE projects SET merkle_root = ?, entries = ?, tree_data = ?, created_at = ? WHERE slug = ?"
-        )
-        .run(
-          data.merkleRoot,
-          entriesJson,
-          treeDataJson,
-          data.createdAt,
-          data.slug.toLowerCase()
-        );
+    if (exists) {
+      db.run(
+        "UPDATE projects SET merkle_root = ?, entries = ?, tree_data = ?, created_at = ? WHERE slug = ?",
+        [data.merkleRoot, entriesJson, treeDataJson, data.createdAt, data.slug.toLowerCase()]
+      );
     } else {
-      sqlite
-        .prepare(
-          "INSERT INTO projects (slug, merkle_root, entries, tree_data, created_at) VALUES (?, ?, ?, ?, ?)"
-        )
-        .run(
-          data.slug.toLowerCase(),
-          data.merkleRoot,
-          entriesJson,
-          treeDataJson,
-          data.createdAt
-        );
+      db.run(
+        "INSERT INTO projects (slug, merkle_root, entries, tree_data, created_at) VALUES (?, ?, ?, ?, ?)",
+        [data.slug.toLowerCase(), data.merkleRoot, entriesJson, treeDataJson, data.createdAt]
+      );
     }
+
+    saveDb();
   }
 
   async getAllProjects(): Promise<ProjectData[]> {
-    const stmt = sqlite.prepare("SELECT * FROM projects");
-    const rows = stmt.all() as ProjectRow[];
+    const db = await getDb();
+    const results: ProjectData[] = [];
+    const stmt = db.prepare("SELECT * FROM projects");
 
-    return rows.map((row) => {
+    while (stmt.step()) {
+      const row = stmt.getAsObject() as unknown as ProjectRow;
       const entries = JSON.parse(row.entries) as MerkleEntry[];
       const treeResult = buildMerkleTree(entries);
 
-      return {
+      results.push({
         slug: row.slug,
         merkleRoot: row.merkle_root as Hex,
         entries,
         tree: treeResult.tree,
         createdAt: row.created_at,
-      };
-    });
+      });
+    }
+
+    stmt.free();
+    return results;
   }
 }
 

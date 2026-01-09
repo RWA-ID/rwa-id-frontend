@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "@shared/schema";
+import initSqlJs, { Database } from "sql.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -10,18 +8,42 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const dbPath = path.join(dataDir, "app.db");
-const sqlite = new Database(dbPath);
 
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug TEXT NOT NULL UNIQUE,
-    merkle_root TEXT NOT NULL,
-    entries TEXT NOT NULL,
-    tree_data TEXT NOT NULL,
-    created_at INTEGER NOT NULL
-  )
-`);
+let db: Database | null = null;
 
-export const db = drizzle(sqlite, { schema });
-export { sqlite };
+export async function getDb(): Promise<Database> {
+  if (db) return db;
+
+  const SQL = await initSqlJs();
+
+  if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath);
+    db = new SQL.Database(buffer);
+  } else {
+    db = new SQL.Database();
+  }
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      merkle_root TEXT NOT NULL,
+      entries TEXT NOT NULL,
+      tree_data TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
+  saveDb();
+  return db;
+}
+
+export function saveDb(): void {
+  if (db) {
+    const data = db.export();
+    const buffer = Buffer.from(data);
+    fs.writeFileSync(dbPath, buffer);
+  }
+}
+
+export { db };
