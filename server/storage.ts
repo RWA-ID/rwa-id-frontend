@@ -1,10 +1,8 @@
-import type { MerkleEntry, MerkleTreeResult } from "./merkle";
+import type { MerkleEntry } from "./merkle";
 import { buildMerkleTree } from "./merkle";
 import type { Hex } from "viem";
 import type { MerkleTree } from "merkletreejs";
-import { db } from "./db";
-import { projects, type AllowlistEntry } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { sqlite } from "./db";
 
 export interface ProjectData {
   slug: string;
@@ -20,69 +18,85 @@ export interface IStorage {
   getAllProjects(): Promise<ProjectData[]>;
 }
 
+interface ProjectRow {
+  id: number;
+  slug: string;
+  merkle_root: string;
+  entries: string;
+  tree_data: string;
+  created_at: number;
+}
+
 export class DatabaseStorage implements IStorage {
   async getProject(slug: string): Promise<ProjectData | undefined> {
-    const [project] = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.slug, slug.toLowerCase()));
+    const stmt = sqlite.prepare("SELECT * FROM projects WHERE slug = ?");
+    const row = stmt.get(slug.toLowerCase()) as ProjectRow | undefined;
 
-    if (!project) {
+    if (!row) {
       return undefined;
     }
 
-    const entries = project.entries as MerkleEntry[];
+    const entries = JSON.parse(row.entries) as MerkleEntry[];
     const treeResult = buildMerkleTree(entries);
 
     return {
-      slug: project.slug,
-      merkleRoot: project.merkleRoot as Hex,
+      slug: row.slug,
+      merkleRoot: row.merkle_root as Hex,
       entries,
       tree: treeResult.tree,
-      createdAt: project.createdAt,
+      createdAt: row.created_at,
     };
   }
 
   async saveProject(data: ProjectData): Promise<void> {
-    const existing = await db
-      .select()
-      .from(projects)
-      .where(eq(projects.slug, data.slug.toLowerCase()));
+    const entriesJson = JSON.stringify(data.entries);
+    const treeDataJson = JSON.stringify({ root: data.merkleRoot });
 
-    if (existing.length > 0) {
-      await db
-        .update(projects)
-        .set({
-          merkleRoot: data.merkleRoot,
-          entries: data.entries as AllowlistEntry[],
-          treeData: JSON.stringify({ root: data.merkleRoot }),
-          createdAt: data.createdAt,
-        })
-        .where(eq(projects.slug, data.slug.toLowerCase()));
+    const existing = sqlite
+      .prepare("SELECT id FROM projects WHERE slug = ?")
+      .get(data.slug.toLowerCase()) as { id: number } | undefined;
+
+    if (existing) {
+      sqlite
+        .prepare(
+          "UPDATE projects SET merkle_root = ?, entries = ?, tree_data = ?, created_at = ? WHERE slug = ?"
+        )
+        .run(
+          data.merkleRoot,
+          entriesJson,
+          treeDataJson,
+          data.createdAt,
+          data.slug.toLowerCase()
+        );
     } else {
-      await db.insert(projects).values({
-        slug: data.slug.toLowerCase(),
-        merkleRoot: data.merkleRoot,
-        entries: data.entries as AllowlistEntry[],
-        treeData: JSON.stringify({ root: data.merkleRoot }),
-        createdAt: data.createdAt,
-      });
+      sqlite
+        .prepare(
+          "INSERT INTO projects (slug, merkle_root, entries, tree_data, created_at) VALUES (?, ?, ?, ?, ?)"
+        )
+        .run(
+          data.slug.toLowerCase(),
+          data.merkleRoot,
+          entriesJson,
+          treeDataJson,
+          data.createdAt
+        );
     }
   }
 
   async getAllProjects(): Promise<ProjectData[]> {
-    const allProjects = await db.select().from(projects);
+    const stmt = sqlite.prepare("SELECT * FROM projects");
+    const rows = stmt.all() as ProjectRow[];
 
-    return allProjects.map((project) => {
-      const entries = project.entries as MerkleEntry[];
+    return rows.map((row) => {
+      const entries = JSON.parse(row.entries) as MerkleEntry[];
       const treeResult = buildMerkleTree(entries);
 
       return {
-        slug: project.slug,
-        merkleRoot: project.merkleRoot as Hex,
+        slug: row.slug,
+        merkleRoot: row.merkle_root as Hex,
         entries,
         tree: treeResult.tree,
-        createdAt: project.createdAt,
+        createdAt: row.created_at,
       };
     });
   }

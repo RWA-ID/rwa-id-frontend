@@ -1,4 +1,4 @@
-import { pgTable, text, serial, jsonb, bigint } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -9,13 +9,13 @@ export const allowlistEntrySchema = z.object({
 
 export type AllowlistEntry = z.infer<typeof allowlistEntrySchema>;
 
-export const projects = pgTable("projects", {
-  id: serial("id").primaryKey(),
+export const projects = sqliteTable("projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   slug: text("slug").notNull().unique(),
   merkleRoot: text("merkle_root").notNull(),
-  entries: jsonb("entries").$type<AllowlistEntry[]>().notNull(),
+  entries: text("entries").notNull(),
   treeData: text("tree_data").notNull(),
-  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  createdAt: integer("created_at").notNull(),
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
