@@ -55,6 +55,18 @@ function ClaimCard({
   const handleClaim = useCallback(() => {
     if (!onChainProjectId || !address) return;
     
+    // Normalize the name to match how nameHash was computed
+    const normalizedName = claim.name.trim().toLowerCase();
+    
+    console.log("=== Claim Debug ===");
+    console.log("projectId:", onChainProjectId.toString());
+    console.log("badgeType:", BADGE_TYPE_DEFAULT);
+    console.log("nameHash:", claim.nameHash);
+    console.log("name (original):", claim.name);
+    console.log("name (normalized):", normalizedName);
+    console.log("proof:", claim.proof);
+    console.log("proof length:", claim.proof.length);
+    
     claimSoulbound({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
@@ -63,17 +75,18 @@ function ClaimCard({
         onChainProjectId,
         BADGE_TYPE_DEFAULT,
         claim.nameHash as `0x${string}`,
-        claim.name,
+        normalizedName,
         claim.proof as `0x${string}`[],
       ],
     }, {
       onSuccess: () => {
         toast({
           title: "Transaction Submitted",
-          description: `Claiming ${claim.name}.${claim.slug}.rwa-id.eth...`,
+          description: `Claiming ${normalizedName}.${claim.slug}.rwa-id.eth...`,
         });
       },
       onError: (error) => {
+        console.error("Claim error:", error);
         toast({
           title: "Claim Failed",
           description: error.message,

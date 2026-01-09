@@ -730,19 +730,6 @@ export default function Platform() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Debug info - remove after fixing */}
-              <div className="p-2 rounded bg-yellow-100 dark:bg-yellow-900/20 text-xs font-mono space-y-1">
-                <p>DEBUG: Step={currentStep}, ProjectID={projectId?.toString() || 'null'}</p>
-                <p>Connected: {address || 'null'}</p>
-                <p>OnChainAdmin: {onChainAdmin || 'null'}</p>
-                <p>StoredAdmin: {projectAdmin || 'null'}</p>
-                <p>EffectiveAdmin: {effectiveAdmin || 'null'}</p>
-                <p>isWalletMismatch: {isWalletMismatch.toString()}</p>
-                <p>estimatedGas={estimatedGas?.toString() || 'null'}</p>
-                <p>gasError: {gasError || 'null'}</p>
-                <p>Button disabled: {(!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess || isWalletMismatch).toString()}</p>
-              </div>
-              
               {/* Wallet mismatch warning */}
               {isWalletMismatch && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
