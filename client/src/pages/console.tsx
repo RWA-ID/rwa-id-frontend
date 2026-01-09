@@ -52,7 +52,8 @@ export default function Platform() {
   const [rowCount, setRowCount] = useState(0);
   const [copied, setCopied] = useState(false);
   const [validFrom, setValidFrom] = useState("0");
-  const [validTo, setValidTo] = useState("0");
+  // Default to max uint64 (effectively no expiration)
+  const [validTo, setValidTo] = useState("18446744073709551615");
   const [proofsData, setProofsData] = useState<Record<string, { name: string; nameHash: string; proof: string[] }> | null>(null);
   const [estimatedGas, setEstimatedGas] = useState<bigint | null>(null);
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
@@ -802,7 +803,7 @@ export default function Platform() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave both as 0 for no time restrictions. Use Unix timestamps for specific windows.
+                Valid From 0 = immediate. Valid To defaults to max value (no expiration). Use Unix timestamps for specific windows.
               </p>
               
               {/* Gas Estimation Status (auto-runs) */}
