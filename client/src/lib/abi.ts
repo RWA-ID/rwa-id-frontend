@@ -51,7 +51,6 @@ export const RWA_ID_REGISTRY_ABI = [
       { name: "projectId", type: "uint256" },
       { name: "badgeType", type: "bytes32" },
       { name: "nameHash", type: "bytes32" },
-      { name: "name", type: "string" },
       { name: "proof", type: "bytes32[]" },
     ],
     outputs: [],

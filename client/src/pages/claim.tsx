@@ -47,7 +47,7 @@ function ClaimCard({
   const { toast } = useToast();
   const { address } = useAccount();
   
-  const { writeContract: claimSoulbound, data: claimTxHash, isPending: isClaiming } = useWriteContract();
+  const { writeContract: claimFor, data: claimTxHash, isPending: isClaiming } = useWriteContract();
   const { isLoading: isWaitingClaim, isSuccess: claimSuccess } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
@@ -55,34 +55,31 @@ function ClaimCard({
   const handleClaim = useCallback(() => {
     if (!onChainProjectId || !address) return;
     
-    // Normalize the name to match how nameHash was computed
-    const normalizedName = claim.name.trim().toLowerCase();
-    
-    console.log("=== Claim Debug ===");
+    console.log("=== Claim Debug (claimFor) ===");
     console.log("projectId:", onChainProjectId.toString());
     console.log("badgeType:", BADGE_TYPE_DEFAULT);
+    console.log("recipient:", address);
     console.log("nameHash:", claim.nameHash);
-    console.log("name (original):", claim.name);
-    console.log("name (normalized):", normalizedName);
     console.log("proof:", claim.proof);
     console.log("proof length:", claim.proof.length);
     
-    claimSoulbound({
+    // Use claimFor with: projectId, badgeType, recipient (connected wallet), nameHash, proof
+    claimFor({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
-      functionName: "claimSoulbound",
+      functionName: "claimFor",
       args: [
         onChainProjectId,
         BADGE_TYPE_DEFAULT,
+        address,
         claim.nameHash as `0x${string}`,
-        normalizedName,
         claim.proof as `0x${string}`[],
       ],
     }, {
       onSuccess: () => {
         toast({
           title: "Transaction Submitted",
-          description: `Claiming ${normalizedName}.${claim.slug}.rwa-id.eth...`,
+          description: `Claiming ${claim.name}.${claim.slug}.rwa-id.eth...`,
         });
       },
       onError: (error) => {
@@ -94,7 +91,7 @@ function ClaimCard({
         });
       },
     });
-  }, [onChainProjectId, address, claim, claimSoulbound, toast]);
+  }, [onChainProjectId, address, claim, claimFor, toast]);
 
   if (claimSuccess) {
     return (
