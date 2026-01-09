@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from "wagmi";
-import { keccak256, toBytes } from "viem";
+import { keccak256, toBytes, encodeFunctionData } from "viem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,13 +55,29 @@ function ClaimCard({
   const handleClaim = useCallback(() => {
     if (!onChainProjectId || !address) return;
     
+    // Encode and log the calldata to verify selector
+    const calldata = encodeFunctionData({
+      abi: RWA_ID_REGISTRY_ABI,
+      functionName: "claimFor",
+      args: [
+        onChainProjectId,
+        BADGE_TYPE_DEFAULT,
+        address,
+        claim.nameHash as `0x${string}`,
+        claim.proof as `0x${string}`[],
+      ],
+    });
+    const selector = calldata.slice(0, 10);
+    
     console.log("=== Claim Debug (claimFor) ===");
+    console.log("TX Selector:", selector, selector === "0x8551b373" ? "✓ CORRECT" : "✗ WRONG");
     console.log("projectId:", onChainProjectId.toString());
     console.log("badgeType:", BADGE_TYPE_DEFAULT);
     console.log("recipient:", address);
     console.log("nameHash:", claim.nameHash);
     console.log("proof:", claim.proof);
     console.log("proof length:", claim.proof.length);
+    console.log("Full calldata:", calldata);
     
     // Use claimFor with: projectId, badgeType, recipient (connected wallet), nameHash, proof
     claimFor({
