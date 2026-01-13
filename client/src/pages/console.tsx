@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient } from "wagmi";
 import { linea } from "wagmi/chains";
-import { keccak256, toBytes, parseEther, formatEther, encodeFunctionData, formatGwei } from "viem";
+import { keccak256, toBytes, parseEther, formatEther, encodeFunctionData, formatGwei, parseAbiItem } from "viem";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +68,14 @@ export default function Platform() {
   const [slugCheckError, setSlugCheckError] = useState<string | null>(null);
   const [slugVerified, setSlugVerified] = useState(false);
   
+  // Auto-discovered projects for connected wallet
+  const [userProjects, setUserProjects] = useState<Array<{
+    projectId: bigint;
+    slug: string;
+    soulbound: boolean;
+  }>>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  
   // Get the appropriate steps based on whether it's an existing project
   const STEPS = isExistingProject ? STEPS_EXISTING : STEPS_NEW;
 
@@ -120,8 +128,8 @@ export default function Platform() {
     },
   });
   
-  // Extract admin from project data (projects returns tuple {admin, soulbound, paused, baseURI})
-  const onChainAdmin = projectData?.admin as string | undefined;
+  // Extract admin from project data (projects returns [admin, soulbound, paused, slugHash, slug, baseURI])
+  const onChainAdmin = projectData?.[0] as string | undefined;
 
   const uploadMutation = useMutation({
     mutationFn: async (data: { slug: string; csvText: string }) => {
@@ -188,14 +196,14 @@ export default function Platform() {
       
       if (existingProjectId && existingProjectId > BigInt(0)) {
         // Project exists - check admin ownership
-        let projectInfo: { admin: string; soulbound: boolean; paused: boolean; baseURI: string };
+        let projectInfo: readonly [string, boolean, boolean, string, string, string];
         try {
           projectInfo = await publicClient.readContract({
             address: RWA_ID_REGISTRY_ADDRESS,
             abi: RWA_ID_REGISTRY_ABI,
             functionName: "projects",
             args: [existingProjectId],
-          }) as { admin: string; soulbound: boolean; paused: boolean; baseURI: string };
+          }) as readonly [string, boolean, boolean, string, string, string];
           console.log("Project info:", projectInfo);
         } catch (projectError) {
           console.error("Project info lookup failed:", projectError);
@@ -203,8 +211,8 @@ export default function Platform() {
           return;
         }
         
-        const admin = projectInfo.admin;
-        const isSoulbound = projectInfo.soulbound;
+        const admin = projectInfo[0];
+        const isSoulbound = projectInfo[1];
         
         if (admin.toLowerCase() === address.toLowerCase()) {
           // User owns this project - set up for existing project flow
@@ -258,6 +266,90 @@ export default function Platform() {
       setIsCheckingSlug(false);
     }
   }, [slug, publicClient, address, toast]);
+
+  // Fetch all projects owned by the connected wallet
+  const fetchUserProjects = useCallback(async () => {
+    if (!publicClient || !address) return;
+    
+    setIsLoadingProjects(true);
+    try {
+      // Iterate through project IDs to find projects owned by this wallet
+      // The contract has relatively few projects, so this is efficient
+      const projects: Array<{ projectId: bigint; slug: string; soulbound: boolean }> = [];
+      const maxProjectsToCheck = 50; // Check up to 50 projects
+      
+      console.log("Scanning for projects owned by:", address);
+      
+      let consecutiveErrors = 0;
+      for (let i = 1; i <= maxProjectsToCheck; i++) {
+        try {
+          const projectInfo = await publicClient.readContract({
+            address: RWA_ID_REGISTRY_ADDRESS,
+            abi: RWA_ID_REGISTRY_ABI,
+            functionName: "projects",
+            args: [BigInt(i)],
+          }) as readonly [string, boolean, boolean, string, string, string];
+          // [admin, soulbound, paused, slugHash, slug, baseURI]
+          
+          consecutiveErrors = 0; // Reset error count on success
+          
+          // Check if this project is owned by the connected wallet
+          if (projectInfo[0] && projectInfo[0].toLowerCase() === address.toLowerCase()) {
+            console.log(`Found project ${i}:`, projectInfo[4]); // slug is at index 4
+            projects.push({
+              projectId: BigInt(i),
+              slug: projectInfo[4], // slug
+              soulbound: projectInfo[1], // soulbound
+            });
+          }
+        } catch (err) {
+          consecutiveErrors++;
+          console.log(`Error reading project ${i}:`, err instanceof Error ? err.message.slice(0, 100) : "Unknown error");
+          // Stop scanning after 3 consecutive errors (likely past end of projects)
+          if (consecutiveErrors >= 3) {
+            console.log(`Stopped scanning after ${i} projects (3 consecutive errors)`);
+            break;
+          }
+        }
+      }
+      
+      console.log("Total projects found for user:", projects.length);
+      setUserProjects(projects);
+      
+      if (projects.length > 0) {
+        toast({
+          title: "Projects Found",
+          description: `You own ${projects.length} project(s). Select one to update or create a new project.`,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch user projects:", error);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, [publicClient, address, toast]);
+
+  // Auto-fetch user's projects when wallet connects
+  useEffect(() => {
+    if (isConnected && address && publicClient && !isWrongNetwork) {
+      fetchUserProjects();
+    }
+  }, [isConnected, address, publicClient, isWrongNetwork, fetchUserProjects]);
+
+  // Select an existing project from the list
+  const selectProject = useCallback((project: { projectId: bigint; slug: string; soulbound: boolean }) => {
+    setSlug(project.slug);
+    setProjectId(project.projectId);
+    setSoulbound(project.soulbound);
+    setIsExistingProject(true);
+    setSlugVerified(true);
+    setProjectAdmin(address || null);
+    
+    toast({
+      title: "Project Selected",
+      description: `"${project.slug}.rwa-id.eth" (ID: ${project.projectId}). Upload a CSV to update the allowlist.`,
+    });
+  }, [address, toast]);
 
   const handleCreateProject = useCallback(() => {
     if (!slug) return;
@@ -702,12 +794,55 @@ export default function Platform() {
               
               {isConnected && !isWrongNetwork && (
                 <>
+                  {/* Display discovered projects */}
+                  {isLoadingProjects && (
+                    <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Loading your projects...</span>
+                    </div>
+                  )}
+                  
+                  {!isLoadingProjects && userProjects.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-card px-2 text-muted-foreground">Your Projects ({userProjects.length})</span>
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-2">
+                        {userProjects.map((project) => (
+                          <Button
+                            key={project.projectId.toString()}
+                            variant={slug === project.slug && isExistingProject ? "default" : "outline"}
+                            className="justify-start gap-2 h-auto py-3"
+                            onClick={() => selectProject(project)}
+                            data-testid={`button-select-project-${project.slug}`}
+                          >
+                            <Fingerprint className="h-4 w-4 flex-shrink-0" />
+                            <div className="text-left">
+                              <div className="font-medium">{project.slug}.rwa-id.eth</div>
+                              <div className="text-xs text-muted-foreground">
+                                ID: {project.projectId.toString()} · {project.soulbound ? "Soulbound" : "Transferable"}
+                              </div>
+                            </div>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Enter Project Slug</span>
+                      <span className="bg-card px-2 text-muted-foreground">
+                        {userProjects.length > 0 ? "Or Enter a New Slug" : "Enter Project Slug"}
+                      </span>
                     </div>
                   </div>
                   
@@ -1219,6 +1354,11 @@ export default function Platform() {
                   setSlugVerified(false);
                   setSlugCheckError(null);
                   setProjectAdmin(null);
+                  setEstimatedGas(null);
+                  setGasPrice(null);
+                  setGasError(null);
+                  // Refresh user projects list
+                  fetchUserProjects();
                 }}
                 data-testid="button-create-another"
               >

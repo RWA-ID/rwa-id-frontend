@@ -68,16 +68,22 @@ export const RWA_ID_REGISTRY_ABI = [
     stateMutability: "view",
     inputs: [{ name: "projectId", type: "uint256" }],
     outputs: [
-      {
-        name: "",
-        type: "tuple",
-        components: [
-          { name: "admin", type: "address" },
-          { name: "soulbound", type: "bool" },
-          { name: "paused", type: "bool" },
-          { name: "baseURI", type: "string" },
-        ],
-      },
+      { name: "admin", type: "address" },
+      { name: "soulbound", type: "bool" },
+      { name: "paused", type: "bool" },
+      { name: "slugHash", type: "bytes32" },
+      { name: "slug", type: "string" },
+      { name: "baseURI", type: "string" },
+    ],
+  },
+  {
+    name: "ProjectCreated",
+    type: "event",
+    inputs: [
+      { name: "projectId", type: "uint256", indexed: true },
+      { name: "admin", type: "address", indexed: true },
+      { name: "slugHash", type: "bytes32", indexed: true },
+      { name: "slug", type: "string", indexed: false },
     ],
   },
 ] as const;
