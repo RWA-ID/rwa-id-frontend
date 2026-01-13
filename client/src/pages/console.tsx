@@ -212,9 +212,22 @@ export default function Platform() {
           description: `"${normalizedSlug}.rwa-id.eth" is available. You'll create a new project.`,
         });
       }
-    } catch (error) {
-      console.error("Slug check failed:", error);
-      setSlugCheckError("Failed to check slug. Please try again.");
+    } catch (error: unknown) {
+      // Log error details as string to avoid serialization issues
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorName = error instanceof Error ? error.name : "Unknown";
+      console.error("Slug check failed:", errorName, errorMessage);
+      
+      // Provide more specific error messages
+      if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("Failed to fetch")) {
+        setSlugCheckError("Network error. Please check your connection and try again.");
+      } else if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
+        setSlugCheckError("RPC rate limited. Please wait a moment and try again.");
+      } else if (errorMessage.includes("timeout")) {
+        setSlugCheckError("Request timed out. Please try again.");
+      } else {
+        setSlugCheckError(`Check failed: ${errorMessage.slice(0, 100)}`);
+      }
     } finally {
       setIsCheckingSlug(false);
     }
@@ -696,11 +709,13 @@ export default function Platform() {
                       />
                       <Button
                         onClick={checkSlugAndOwnership}
-                        disabled={!slug || isCheckingSlug}
+                        disabled={!slug || isCheckingSlug || !publicClient}
                         data-testid="button-check-slug"
                       >
                         {isCheckingSlug ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : !publicClient ? (
+                          "Connecting..."
                         ) : (
                           "Check"
                         )}
