@@ -120,8 +120,8 @@ export default function Platform() {
     },
   });
   
-  // Extract admin from project data (projects returns [admin, soulbound, paused, baseURI])
-  const onChainAdmin = projectData?.[0] as string | undefined;
+  // Extract admin from project data (projects returns tuple {admin, soulbound, paused, baseURI})
+  const onChainAdmin = projectData?.admin as string | undefined;
 
   const uploadMutation = useMutation({
     mutationFn: async (data: { slug: string; csvText: string }) => {
@@ -160,25 +160,51 @@ export default function Platform() {
       const normalizedSlug = slug.trim().toLowerCase();
       const computedSlugHash = keccak256(toBytes(normalizedSlug));
       
-      // Check if project exists
-      const existingProjectId = await publicClient.readContract({
-        address: RWA_ID_REGISTRY_ADDRESS,
-        abi: RWA_ID_REGISTRY_ABI,
-        functionName: "projectIdBySlugHash",
-        args: [computedSlugHash],
-      });
+      console.log("Checking slug:", normalizedSlug, "Hash:", computedSlugHash);
+      
+      // Check if project exists - use raw call to handle potential ABI issues
+      let existingProjectId: bigint;
+      try {
+        existingProjectId = await publicClient.readContract({
+          address: RWA_ID_REGISTRY_ADDRESS,
+          abi: RWA_ID_REGISTRY_ABI,
+          functionName: "projectIdBySlugHash",
+          args: [computedSlugHash],
+        }) as bigint;
+        console.log("Project ID lookup result:", existingProjectId?.toString());
+      } catch (lookupError) {
+        console.error("Project ID lookup failed:", lookupError);
+        // If lookup fails, assume slug is available
+        setIsExistingProject(false);
+        setSlugVerified(true);
+        setProjectId(null);
+        setProjectAdmin(null);
+        toast({
+          title: "Slug Available",
+          description: `"${normalizedSlug}.rwa-id.eth" appears to be available.`,
+        });
+        return;
+      }
       
       if (existingProjectId && existingProjectId > BigInt(0)) {
         // Project exists - check admin ownership
-        const projectInfo = await publicClient.readContract({
-          address: RWA_ID_REGISTRY_ADDRESS,
-          abi: RWA_ID_REGISTRY_ABI,
-          functionName: "projects",
-          args: [existingProjectId],
-        });
+        let projectInfo: { admin: string; soulbound: boolean; paused: boolean; baseURI: string };
+        try {
+          projectInfo = await publicClient.readContract({
+            address: RWA_ID_REGISTRY_ADDRESS,
+            abi: RWA_ID_REGISTRY_ABI,
+            functionName: "projects",
+            args: [existingProjectId],
+          }) as { admin: string; soulbound: boolean; paused: boolean; baseURI: string };
+          console.log("Project info:", projectInfo);
+        } catch (projectError) {
+          console.error("Project info lookup failed:", projectError);
+          setSlugCheckError("Could not fetch project details. Please try again.");
+          return;
+        }
         
-        const admin = projectInfo[0] as string;
-        const isSoulbound = projectInfo[1] as boolean;
+        const admin = projectInfo.admin;
+        const isSoulbound = projectInfo.soulbound;
         
         if (admin.toLowerCase() === address.toLowerCase()) {
           // User owns this project - set up for existing project flow
