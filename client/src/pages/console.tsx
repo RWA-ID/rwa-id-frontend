@@ -33,7 +33,8 @@ import {
   Download,
 } from "lucide-react";
 
-const STEPS = ["Connect", "Create Project", "Upload CSV", "Set Root", "Complete"];
+const STEPS_NEW = ["Connect", "Create Project", "Upload CSV", "Set Root", "Complete"];
+const STEPS_EXISTING = ["Connect", "Upload CSV", "Set Root", "Complete"];
 
 export default function Platform() {
   const { toast } = useToast();
@@ -60,6 +61,15 @@ export default function Platform() {
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
   const [gasError, setGasError] = useState<string | null>(null);
   const [projectAdmin, setProjectAdmin] = useState<string | null>(null);
+  
+  // Existing project detection
+  const [isExistingProject, setIsExistingProject] = useState(false);
+  const [isCheckingSlug, setIsCheckingSlug] = useState(false);
+  const [slugCheckError, setSlugCheckError] = useState<string | null>(null);
+  const [slugVerified, setSlugVerified] = useState(false);
+  
+  // Get the appropriate steps based on whether it's an existing project
+  const STEPS = isExistingProject ? STEPS_EXISTING : STEPS_NEW;
 
   const publicClient = usePublicClient();
 
@@ -137,6 +147,78 @@ export default function Platform() {
       });
     },
   });
+
+  // Check if slug exists and verify admin ownership
+  const checkSlugAndOwnership = useCallback(async () => {
+    if (!slug || !publicClient || !address) return;
+    
+    setIsCheckingSlug(true);
+    setSlugCheckError(null);
+    setSlugVerified(false);
+    
+    try {
+      const normalizedSlug = slug.trim().toLowerCase();
+      const computedSlugHash = keccak256(toBytes(normalizedSlug));
+      
+      // Check if project exists
+      const existingProjectId = await publicClient.readContract({
+        address: RWA_ID_REGISTRY_ADDRESS,
+        abi: RWA_ID_REGISTRY_ABI,
+        functionName: "projectIdBySlugHash",
+        args: [computedSlugHash],
+      });
+      
+      if (existingProjectId && existingProjectId > BigInt(0)) {
+        // Project exists - check admin ownership
+        const projectInfo = await publicClient.readContract({
+          address: RWA_ID_REGISTRY_ADDRESS,
+          abi: RWA_ID_REGISTRY_ABI,
+          functionName: "projects",
+          args: [existingProjectId],
+        });
+        
+        const admin = projectInfo[0] as string;
+        const isSoulbound = projectInfo[1] as boolean;
+        
+        if (admin.toLowerCase() === address.toLowerCase()) {
+          // User owns this project - set up for existing project flow
+          setProjectId(existingProjectId);
+          setProjectAdmin(admin);
+          setSoulbound(isSoulbound);
+          setIsExistingProject(true);
+          setSlugVerified(true);
+          
+          toast({
+            title: "Project Found",
+            description: `You own "${normalizedSlug}.rwa-id.eth" (ID: ${existingProjectId}). Upload a new CSV to update the allowlist.`,
+          });
+        } else {
+          // Project exists but user is not admin
+          setSlugCheckError(`This slug is owned by ${admin.slice(0, 6)}...${admin.slice(-4)}. Please use a different slug or switch wallets.`);
+        }
+      } else {
+        // Project doesn't exist - new project flow
+        setIsExistingProject(false);
+        setSlugVerified(true);
+        // Clear any previous project state for a clean new project flow
+        setProjectId(null);
+        setProjectAdmin(null);
+        setEstimatedGas(null);
+        setGasPrice(null);
+        setGasError(null);
+        
+        toast({
+          title: "Slug Available",
+          description: `"${normalizedSlug}.rwa-id.eth" is available. You'll create a new project.`,
+        });
+      }
+    } catch (error) {
+      console.error("Slug check failed:", error);
+      setSlugCheckError("Failed to check slug. Please try again.");
+    } finally {
+      setIsCheckingSlug(false);
+    }
+  }, [slug, publicClient, address, toast]);
 
   const handleCreateProject = useCallback(() => {
     if (!slug) return;
@@ -438,17 +520,32 @@ export default function Platform() {
   };
 
   const canProceed = () => {
-    switch (currentStep) {
-      case 0:
-        return isConnected && !isWrongNetwork;
-      case 1:
-        return createSuccess && projectId !== null;
-      case 2:
-        return !!merkleRoot;
-      case 3:
-        return setRootSuccess;
-      default:
-        return true;
+    if (isExistingProject) {
+      // Existing project flow: Connect → Upload CSV → Set Root → Complete
+      switch (currentStep) {
+        case 0:
+          return isConnected && !isWrongNetwork && slugVerified && isExistingProject;
+        case 1: // Upload CSV
+          return !!merkleRoot;
+        case 2: // Set Root
+          return setRootSuccess;
+        default:
+          return true;
+      }
+    } else {
+      // New project flow: Connect → Create Project → Upload CSV → Set Root → Complete
+      switch (currentStep) {
+        case 0:
+          return isConnected && !isWrongNetwork && slugVerified && !isExistingProject;
+        case 1:
+          return createSuccess && projectId !== null;
+        case 2:
+          return !!merkleRoot;
+        case 3:
+          return setRootSuccess;
+        default:
+          return true;
+      }
     }
   };
 
@@ -494,57 +591,175 @@ export default function Platform() {
     }
   }, [createSuccess, projectId, slug, refetchProjectId, toast, address, projectAdmin]);
 
-  // Auto-estimate gas when entering step 3 with all required data
+  // Auto-estimate gas when entering setroot step with all required data
   useEffect(() => {
-    if (currentStep === 3 && projectId && merkleRoot && publicClient && address && !estimatedGas && !isEstimatingGas && !gasError) {
+    const logicalStep = isExistingProject 
+      ? ["connect", "upload", "setroot", "complete"][currentStep] 
+      : ["connect", "create", "upload", "setroot", "complete"][currentStep];
+    
+    if (logicalStep === "setroot" && projectId && merkleRoot && publicClient && address && !estimatedGas && !isEstimatingGas && !gasError) {
       estimateGasForSetRoot();
     }
-  }, [currentStep, projectId, merkleRoot, publicClient, address, estimatedGas, isEstimatingGas, gasError, estimateGasForSetRoot]);
+  }, [currentStep, isExistingProject, projectId, merkleRoot, publicClient, address, estimatedGas, isEstimatingGas, gasError, estimateGasForSetRoot]);
 
   // Re-estimate when validFrom/validTo change
   useEffect(() => {
-    if (currentStep === 3 && projectId && merkleRoot && estimatedGas) {
+    const logicalStep = isExistingProject 
+      ? ["connect", "upload", "setroot", "complete"][currentStep] 
+      : ["connect", "create", "upload", "setroot", "complete"][currentStep];
+    
+    if (logicalStep === "setroot" && projectId && merkleRoot && estimatedGas) {
       // Reset estimation when time window changes
       setEstimatedGas(null);
       setGasPrice(null);
       setGasError(null);
     }
-  }, [validFrom, validTo]);
+  }, [validFrom, validTo, currentStep, isExistingProject, projectId, merkleRoot, estimatedGas]);
+
+  // Map current step to logical step based on flow type
+  const getLogicalStep = () => {
+    if (isExistingProject) {
+      // Existing: 0=Connect, 1=Upload, 2=SetRoot, 3=Complete
+      const map = ["connect", "upload", "setroot", "complete"];
+      return map[currentStep] || "connect";
+    } else {
+      // New: 0=Connect, 1=Create, 2=Upload, 3=SetRoot, 4=Complete
+      const map = ["connect", "create", "upload", "setroot", "complete"];
+      return map[currentStep] || "connect";
+    }
+  };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
-        return (
+    const logicalStep = getLogicalStep();
+    
+    if (logicalStep === "connect") {
+      return (
           <Card className="max-w-lg mx-auto">
             <CardHeader className="text-center">
-              <CardTitle className="font-heading text-2xl">Connect Your Wallet</CardTitle>
+              <CardTitle className="font-heading text-2xl">Connect & Select Project</CardTitle>
               <CardDescription>
-                Connect to Linea Mainnet to create your RWA-ID project
+                Connect your wallet and enter your project slug
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <Fingerprint className="w-10 h-10 text-primary" />
+            <CardContent className="space-y-6">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Fingerprint className="w-8 h-8 text-primary" />
+                </div>
+                <WalletButton />
+                {isWrongNetwork && (
+                  <div className="flex items-center gap-2 text-destructive text-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    Please switch to Linea Mainnet
+                  </div>
+                )}
+                {isConnected && !isWrongNetwork && (
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
+                    <CheckCircle className="w-4 h-4" />
+                    Connected to Linea Mainnet
+                  </div>
+                )}
               </div>
-              <WalletButton />
-              {isWrongNetwork && (
-                <div className="flex items-center gap-2 text-destructive text-sm">
-                  <AlertTriangle className="w-4 h-4" />
-                  Please switch to Linea Mainnet
-                </div>
-              )}
+              
               {isConnected && !isWrongNetwork && (
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
-                  <CheckCircle className="w-4 h-4" />
-                  Connected to Linea Mainnet
-                </div>
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Enter Project Slug</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="slug-check">Project Slug</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="slug-check"
+                        placeholder="e.g., testproject2025"
+                        value={slug}
+                        onChange={(e) => {
+                          setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                          setSlugVerified(false);
+                          setSlugCheckError(null);
+                          setIsExistingProject(false);
+                          // Clear project state when slug changes to prevent stale data
+                          setProjectId(null);
+                          setProjectAdmin(null);
+                          setEstimatedGas(null);
+                          setGasPrice(null);
+                          setGasError(null);
+                        }}
+                        disabled={isCheckingSlug}
+                        data-testid="input-slug-check"
+                      />
+                      <Button
+                        onClick={checkSlugAndOwnership}
+                        disabled={!slug || isCheckingSlug}
+                        data-testid="button-check-slug"
+                      >
+                        {isCheckingSlug ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Check"
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter an existing slug to update its allowlist, or a new slug to create a project
+                    </p>
+                  </div>
+                  
+                  {slugCheckError && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-destructive">{slugCheckError}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {slugVerified && isExistingProject && (
+                    <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-green-700 dark:text-green-400">
+                            Existing Project Found
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Project ID: {projectId?.toString()} - You can upload a new CSV to update the allowlist (no platform fee required)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {slugVerified && !isExistingProject && (
+                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium text-blue-700 dark:text-blue-400">
+                            Slug Available
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            "{slug}.rwa-id.eth" is available. You'll create a new project in the next step.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
         );
-
-      case 1:
-        return (
+    }
+    
+    if (logicalStep === "create") {
+      return (
           <Card className="max-w-lg mx-auto">
             <CardHeader>
               <CardTitle className="font-heading text-2xl">Create Project</CardTitle>
@@ -636,9 +851,10 @@ export default function Platform() {
             </CardContent>
           </Card>
         );
-
-      case 2:
-        return (
+    }
+    
+    if (logicalStep === "upload") {
+      return (
           <Card className="max-w-lg mx-auto">
             <CardHeader>
               <CardTitle className="font-heading text-2xl">Upload Allowlist</CardTitle>
@@ -720,9 +936,10 @@ export default function Platform() {
             </CardContent>
           </Card>
         );
-
-      case 3:
-        return (
+    }
+    
+    if (logicalStep === "setroot") {
+      return (
           <Card className="max-w-lg mx-auto">
             <CardHeader>
               <CardTitle className="font-heading text-2xl">Set Allowlist Root</CardTitle>
@@ -885,15 +1102,16 @@ export default function Platform() {
             </CardContent>
           </Card>
         );
-
-      case 4:
-        return (
+    }
+    
+    if (logicalStep === "complete") {
+      return (
           <Card className="max-w-lg mx-auto">
             <CardHeader className="text-center">
               <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-10 h-10 text-green-500" />
               </div>
-              <CardTitle className="font-heading text-2xl">Project Created!</CardTitle>
+              <CardTitle className="font-heading text-2xl">{isExistingProject ? "Allowlist Updated!" : "Project Created!"}</CardTitle>
               <CardDescription>
                 Your RWA-ID namespace is now live on Linea
               </CardDescription>
@@ -955,7 +1173,11 @@ export default function Platform() {
                   setRowCount(0);
                   setProofsData(null);
                   setValidFrom("0");
-                  setValidTo("0");
+                  setValidTo("18446744073709551615");
+                  setIsExistingProject(false);
+                  setSlugVerified(false);
+                  setSlugCheckError(null);
+                  setProjectAdmin(null);
                 }}
                 data-testid="button-create-another"
               >
@@ -964,10 +1186,9 @@ export default function Platform() {
             </CardContent>
           </Card>
         );
-
-      default:
-        return null;
     }
+    
+    return null;
   };
 
   return (
