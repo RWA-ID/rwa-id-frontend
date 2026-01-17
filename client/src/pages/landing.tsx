@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { SiGithub, SiX } from "react-icons/si";
 import { useState } from "react";
+import lineaLogo from "@assets/Wordmark_Blue_BG_1768681663242.png";
 
 const CONTRACT_ADDRESS = "0x74aACeff8139c84433befB922a8E687B6ba51F3a";
 
@@ -71,9 +72,9 @@ export default function Landing() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-center">
               <div className="lg:col-span-3 space-y-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                  <Shield className="w-4 h-4" />
-                  Powered by Linea Mainnet
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#61dfff] text-sm font-medium">
+                  <span className="text-black/70">Powered by</span>
+                  <img src={lineaLogo} alt="Linea" className="h-4 object-contain" />
                 </div>
                 <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
                   Decentralized Identity
