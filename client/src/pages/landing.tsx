@@ -74,7 +74,7 @@ export default function Landing() {
               <div className="lg:col-span-3 space-y-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#61dfff] text-sm font-medium">
                   <span className="text-black/70">Powered by</span>
-                  <img src={lineaLogo} alt="Linea" className="h-6 object-contain" />
+                  <img src={lineaLogo} alt="Linea" className="h-8 object-contain" />
                 </div>
                 <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
                   Decentralized Identity
