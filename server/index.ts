@@ -6,6 +6,17 @@ import { createServer } from "http";
 const app = express();
 const httpServer = createServer(app);
 
+// CORS middleware for MetaMask CCIP-read ENS resolution
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
