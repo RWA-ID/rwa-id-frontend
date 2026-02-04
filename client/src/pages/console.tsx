@@ -420,7 +420,7 @@ export default function Platform() {
       // Log debug info
       console.log("=== Set Allowlist Root Debug ===");
       console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
-      console.log("Function: setAllowlistRootForBadgeWithWindow");
+      console.log("Function: setAllowlistRootForBadge");
       console.log("Args:", {
         projectId: projectId.toString(),
         badgeType: BADGE_TYPE_DEFAULT,
