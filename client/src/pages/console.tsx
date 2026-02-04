@@ -412,6 +412,21 @@ export default function Platform() {
 
   const handleCreateProject = useCallback(() => {
     if (!slug) return;
+    
+    // CRITICAL: Check we're on the right network FIRST
+    if (!chain || chain.id !== LINEA_CHAIN_ID) {
+      console.error("handleCreateProject BLOCKED - Wrong network! Connected to:", chain?.id, "Expected:", LINEA_CHAIN_ID);
+      toast({
+        title: "Wrong Network",
+        description: "Please switch to Linea Mainnet before creating a project.",
+        variant: "destructive",
+      });
+      if (switchChain) {
+        switchChain({ chainId: LINEA_CHAIN_ID });
+      }
+      return;
+    }
+    
     console.log("=== handleCreateProject CALLED ===");
     console.log("Function: createProjectWithSlug");
     console.log("Args:", { slug: slug.trim().toLowerCase(), soulbound, baseURI });
@@ -422,6 +437,7 @@ export default function Platform() {
       functionName: "createProjectWithSlug",
       args: [slug.trim().toLowerCase(), soulbound, baseURI],
       value: fee,
+      chainId: LINEA_CHAIN_ID, // Force Linea Mainnet
     }, {
       onSuccess: () => {
         toast({
@@ -437,7 +453,7 @@ export default function Platform() {
         });
       },
     });
-  }, [slug, baseURI, soulbound, projectFee, createProject, toast]);
+  }, [slug, baseURI, soulbound, projectFee, createProject, toast, chain, switchChain]);
 
   // Check if current wallet matches project admin (use on-chain data if available, fallback to stored)
   const effectiveAdmin = onChainAdmin || projectAdmin;
@@ -559,6 +575,21 @@ export default function Platform() {
   }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin, toast]);
 
   const handleSetAllowlistRoot = useCallback(() => {
+    // CRITICAL: Check we're on the right network FIRST
+    if (!chain || chain.id !== LINEA_CHAIN_ID) {
+      console.error("handleSetAllowlistRoot BLOCKED - Wrong network! Connected to:", chain?.id, "Expected:", LINEA_CHAIN_ID);
+      toast({
+        title: "Wrong Network",
+        description: "Please switch to Linea Mainnet before setting the allowlist root.",
+        variant: "destructive",
+      });
+      // Try to switch to Linea
+      if (switchChain) {
+        switchChain({ chainId: LINEA_CHAIN_ID });
+      }
+      return;
+    }
+    
     // HARD GUARD: Ensure we have a valid projectId - NEVER fallback to createProject
     if (!projectId || projectId === BigInt(0)) {
       console.error("handleSetAllowlistRoot BLOCKED - Project not created yet");
@@ -629,12 +660,14 @@ export default function Platform() {
     }
     
     // Call setAllowlistRootForBadge - NEVER createProject
+    // CRITICAL: Explicitly specify chainId to ensure transaction goes to Linea
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
       functionName: "setAllowlistRootForBadge",
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
       gas: estimatedGas + (estimatedGas / BigInt(10)), // Add 10% buffer
+      chainId: LINEA_CHAIN_ID, // Force Linea Mainnet
     }, {
       onSuccess: (hash) => {
         console.log("=== setAllowlistRoot onSuccess ===");
@@ -654,7 +687,7 @@ export default function Platform() {
         });
       },
     });
-  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast]);
+  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast, chain, switchChain]);
 
   
   const downloadProofsJson = useCallback(() => {
