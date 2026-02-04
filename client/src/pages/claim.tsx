@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
-import { useToast } from "@/hooks/use-toast";
 import {
   Fingerprint,
   CheckCircle,
@@ -44,7 +43,6 @@ function ClaimCard({
   onChainProjectId: bigint | undefined;
   isWrongNetwork: boolean;
 }) {
-  const { toast } = useToast();
   const { address } = useAccount();
   
   const { writeContract: claimFor, data: claimTxHash, isPending: isClaiming } = useWriteContract();
@@ -93,21 +91,13 @@ function ClaimCard({
       ],
     }, {
       onSuccess: () => {
-        toast({
-          title: "Transaction Submitted",
-          description: `Claiming ${claim.name}.${claim.slug}.rwa-id.eth...`,
-        });
+        console.log(`Claiming ${claim.name}.${claim.slug}.rwa-id.eth...`);
       },
       onError: (error) => {
         console.error("Claim error:", error);
-        toast({
-          title: "Claim Failed",
-          description: error.message,
-          variant: "destructive",
-        });
       },
     });
-  }, [onChainProjectId, address, claim, claimFor, toast]);
+  }, [onChainProjectId, address, claim, claimFor]);
 
   if (claimSuccess) {
     return (
@@ -221,7 +211,6 @@ function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIde
 }
 
 export default function Claim() {
-  const { toast } = useToast();
   const { address, isConnected, chain } = useAccount();
   const chainId = useChainId(); // Get actual chain ID from wallet
   const { switchChain } = useSwitchChain();
