@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient, useChainId } from "wagmi";
 import { linea } from "wagmi/chains";
 import { keccak256, toBytes, parseEther, formatEther, encodeFunctionData, formatGwei, parseAbiItem } from "viem";
 import { useMutation } from "@tanstack/react-query";
@@ -39,9 +39,55 @@ const STEPS_EXISTING = ["Connect", "Upload CSV", "Set Root", "Complete"];
 export default function Platform() {
   const { toast } = useToast();
   const { address, isConnected, chain } = useAccount();
+  const chainId = useChainId(); // Get actual chain ID from wallet
   const { switchChain } = useSwitchChain();
-  // Only show wrong network if chain is defined and it's not Linea
-  const isWrongNetwork = isConnected && chain !== undefined && chain.id !== LINEA_CHAIN_ID;
+  
+  // Check if on wrong network - use chainId hook which works even for unsupported chains
+  // chain.id may be undefined if wallet is on unsupported chain, but chainId from useChainId() returns actual ID
+  const actualChainId = chain?.id ?? chainId;
+  const isWrongNetwork = isConnected && actualChainId !== LINEA_CHAIN_ID;
+  
+  // Track if we've already prompted for network switch to avoid spamming
+  const hasPromptedNetworkSwitch = useRef(false);
+  
+  // Auto-prompt wallet to switch to Linea when connected to wrong network
+  useEffect(() => {
+    if (isWrongNetwork && switchChain && !hasPromptedNetworkSwitch.current) {
+      hasPromptedNetworkSwitch.current = true;
+      console.log("Auto-prompting wallet to switch to Linea. Current chain:", actualChainId, "(chain.id:", chain?.id, "chainId hook:", chainId, ")");
+      
+      // Small delay to let wallet UI settle
+      const timer = setTimeout(() => {
+        switchChain(
+          { chainId: LINEA_CHAIN_ID },
+          {
+            onSuccess: () => {
+              console.log("Successfully switched to Linea!");
+              toast({
+                title: "Network Switched",
+                description: "Connected to Linea Mainnet",
+              });
+            },
+            onError: (error) => {
+              console.error("Failed to switch network:", error);
+              toast({
+                title: "Network Switch Required",
+                description: "Please switch to Linea Mainnet in your wallet to continue.",
+                variant: "destructive",
+              });
+            },
+          }
+        );
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Reset the flag when user disconnects or switches to correct network
+    if (!isConnected || actualChainId === LINEA_CHAIN_ID) {
+      hasPromptedNetworkSwitch.current = false;
+    }
+  }, [isWrongNetwork, switchChain, actualChainId, chain, chainId, isConnected, toast]);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [slug, setSlug] = useState("");
@@ -414,15 +460,40 @@ export default function Platform() {
     if (!slug) return;
     
     // CRITICAL: Check we're on the right network FIRST
-    if (!chain || chain.id !== LINEA_CHAIN_ID) {
-      console.error("handleCreateProject BLOCKED - Wrong network! Connected to:", chain?.id, "Expected:", LINEA_CHAIN_ID);
-      toast({
-        title: "Wrong Network",
-        description: "Please switch to Linea Mainnet before creating a project.",
-        variant: "destructive",
-      });
+    if (actualChainId !== LINEA_CHAIN_ID) {
+      console.error("handleCreateProject BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", LINEA_CHAIN_ID);
+      
+      // Trigger wallet popup to switch networks
       if (switchChain) {
-        switchChain({ chainId: LINEA_CHAIN_ID });
+        toast({
+          title: "Switching Network",
+          description: "Please approve the network switch in your wallet.",
+        });
+        switchChain(
+          { chainId: LINEA_CHAIN_ID },
+          {
+            onSuccess: () => {
+              toast({
+                title: "Network Switched",
+                description: "Now connected to Linea. Please click 'Create Project' again.",
+              });
+            },
+            onError: (error) => {
+              console.error("Network switch failed:", error);
+              toast({
+                title: "Network Switch Failed",
+                description: "Please manually switch to Linea Mainnet in your wallet.",
+                variant: "destructive",
+              });
+            },
+          }
+        );
+      } else {
+        toast({
+          title: "Wrong Network",
+          description: "Please switch to Linea Mainnet in your wallet.",
+          variant: "destructive",
+        });
       }
       return;
     }
@@ -453,7 +524,7 @@ export default function Platform() {
         });
       },
     });
-  }, [slug, baseURI, soulbound, projectFee, createProject, toast, chain, switchChain]);
+  }, [slug, baseURI, soulbound, projectFee, createProject, toast, actualChainId, switchChain]);
 
   // Check if current wallet matches project admin (use on-chain data if available, fallback to stored)
   const effectiveAdmin = onChainAdmin || projectAdmin;
@@ -576,16 +647,40 @@ export default function Platform() {
 
   const handleSetAllowlistRoot = useCallback(() => {
     // CRITICAL: Check we're on the right network FIRST
-    if (!chain || chain.id !== LINEA_CHAIN_ID) {
-      console.error("handleSetAllowlistRoot BLOCKED - Wrong network! Connected to:", chain?.id, "Expected:", LINEA_CHAIN_ID);
-      toast({
-        title: "Wrong Network",
-        description: "Please switch to Linea Mainnet before setting the allowlist root.",
-        variant: "destructive",
-      });
-      // Try to switch to Linea
+    if (actualChainId !== LINEA_CHAIN_ID) {
+      console.error("handleSetAllowlistRoot BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", LINEA_CHAIN_ID);
+      
+      // Trigger wallet popup to switch networks
       if (switchChain) {
-        switchChain({ chainId: LINEA_CHAIN_ID });
+        toast({
+          title: "Switching Network",
+          description: "Please approve the network switch in your wallet.",
+        });
+        switchChain(
+          { chainId: LINEA_CHAIN_ID },
+          {
+            onSuccess: () => {
+              toast({
+                title: "Network Switched",
+                description: "Now connected to Linea. Please click 'Set Allowlist Root' again.",
+              });
+            },
+            onError: (error) => {
+              console.error("Network switch failed:", error);
+              toast({
+                title: "Network Switch Failed",
+                description: "Please manually switch to Linea Mainnet in your wallet.",
+                variant: "destructive",
+              });
+            },
+          }
+        );
+      } else {
+        toast({
+          title: "Wrong Network",
+          description: "Please switch to Linea Mainnet in your wallet.",
+          variant: "destructive",
+        });
       }
       return;
     }
@@ -687,7 +782,7 @@ export default function Platform() {
         });
       },
     });
-  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast, chain, switchChain]);
+  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast, actualChainId, switchChain]);
 
   
   const downloadProofsJson = useCallback(() => {
