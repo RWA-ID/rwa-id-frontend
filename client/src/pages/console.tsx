@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient } from "wagmi";
 import { linea } from "wagmi/chains";
@@ -733,8 +733,19 @@ export default function Platform() {
     }
   }, [currentStep, isExistingProject, projectId, merkleRoot, publicClient, address, estimatedGas, isEstimatingGas, gasError, estimateGasForSetRoot]);
 
-  // Re-estimate when validFrom/validTo change
+  // Track previous validFrom/validTo to detect actual changes
+  const prevTimeWindow = useRef({ validFrom, validTo });
+  
+  // Re-estimate when validFrom/validTo actually change
   useEffect(() => {
+    // Only reset if validFrom or validTo actually changed
+    if (prevTimeWindow.current.validFrom === validFrom && prevTimeWindow.current.validTo === validTo) {
+      return;
+    }
+    
+    // Update the ref
+    prevTimeWindow.current = { validFrom, validTo };
+    
     const logicalStep = isExistingProject 
       ? ["connect", "upload", "setroot", "complete"][currentStep] 
       : ["connect", "create", "upload", "setroot", "complete"][currentStep];
