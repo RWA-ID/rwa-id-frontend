@@ -102,12 +102,30 @@ export default function Platform() {
   const { writeContract: createProject, data: createTxHash, isPending: isCreating, reset: resetCreateProject } = useWriteContract();
   const { isLoading: isWaitingCreate, isSuccess: createSuccess, data: createReceipt } = useWaitForTransactionReceipt({
     hash: createTxHash,
+    query: {
+      enabled: !!createTxHash,
+    },
   });
 
-  const { writeContract: setAllowlistRoot, data: setRootTxHash, isPending: isSettingRoot, reset: resetSetRoot } = useWriteContract();
-  const { isLoading: isWaitingSetRoot, isSuccess: setRootSuccess } = useWaitForTransactionReceipt({
+  const { writeContract: setAllowlistRoot, data: setRootTxHash, isPending: isSettingRoot, reset: resetSetRoot, error: setRootError } = useWriteContract();
+  const { isLoading: isWaitingSetRoot, isSuccess: setRootSuccess, error: receiptError, status: receiptStatus } = useWaitForTransactionReceipt({
     hash: setRootTxHash,
+    query: {
+      enabled: !!setRootTxHash,
+    },
   });
+  
+  // Debug: Monitor setRoot transaction state
+  useEffect(() => {
+    console.log("=== SetRoot State Debug ===");
+    console.log("setRootTxHash:", setRootTxHash);
+    console.log("isSettingRoot:", isSettingRoot);
+    console.log("isWaitingSetRoot:", isWaitingSetRoot);
+    console.log("setRootSuccess:", setRootSuccess);
+    console.log("receiptStatus:", receiptStatus);
+    console.log("setRootError:", setRootError);
+    console.log("receiptError:", receiptError);
+  }, [setRootTxHash, isSettingRoot, isWaitingSetRoot, setRootSuccess, receiptStatus, setRootError, receiptError]);
   
   // Reset createProject mutation when moving to step 3 to prevent stale transactions
   useEffect(() => {
@@ -577,13 +595,16 @@ export default function Platform() {
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
       gas: estimatedGas + (estimatedGas / BigInt(10)), // Add 10% buffer
     }, {
-      onSuccess: () => {
+      onSuccess: (hash) => {
+        console.log("=== setAllowlistRoot onSuccess ===");
+        console.log("Transaction hash:", hash);
         toast({
           title: "Transaction Submitted",
           description: "Setting allowlist root...",
         });
       },
       onError: (error) => {
+        console.error("=== setAllowlistRoot onError ===");
         console.error("setAllowlistRoot transaction error:", error);
         toast({
           title: "Transaction Failed",
