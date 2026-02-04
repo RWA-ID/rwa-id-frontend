@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, useChainId } from "wagmi";
 import { keccak256, toBytes, encodeFunctionData } from "viem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -223,10 +223,13 @@ function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIde
 export default function Claim() {
   const { toast } = useToast();
   const { address, isConnected, chain } = useAccount();
+  const chainId = useChainId(); // Get actual chain ID from wallet
   const { switchChain } = useSwitchChain();
-  // Only show wrong network if chain is defined and it's not Linea
-  const isWrongNetwork = isConnected && chain !== undefined && chain.id !== LINEA_CHAIN_ID;
-  const isCorrectNetwork = isConnected && chain !== undefined && chain.id === LINEA_CHAIN_ID;
+  
+  // Check if on wrong network - use chainId hook which works even for unsupported chains
+  const actualChainId = chain?.id ?? chainId;
+  const isWrongNetwork = isConnected && actualChainId !== LINEA_CHAIN_ID;
+  const isCorrectNetwork = isConnected && actualChainId === LINEA_CHAIN_ID;
 
   const [claims, setClaims] = useState<ClaimableIdentity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
