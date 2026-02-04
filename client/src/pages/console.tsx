@@ -15,7 +15,6 @@ import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import type { UploadResponse } from "@shared/schema";
 import {
   Fingerprint,
@@ -37,7 +36,6 @@ const STEPS_NEW = ["Connect", "Create Project", "Upload CSV", "Set Root", "Compl
 const STEPS_EXISTING = ["Connect", "Upload CSV", "Set Root", "Complete"];
 
 export default function Platform() {
-  const { toast } = useToast();
   const { address, isConnected, chain } = useAccount();
   const chainId = useChainId(); // Get actual chain ID from wallet
   const { switchChain } = useSwitchChain();
@@ -63,18 +61,9 @@ export default function Platform() {
           {
             onSuccess: () => {
               console.log("Successfully switched to Linea!");
-              toast({
-                title: "Network Switched",
-                description: "Connected to Linea Mainnet",
-              });
             },
             onError: (error) => {
               console.error("Failed to switch network:", error);
-              toast({
-                title: "Network Switch Required",
-                description: "Please switch to Linea Mainnet in your wallet to continue.",
-                variant: "destructive",
-              });
             },
           }
         );
@@ -87,7 +76,7 @@ export default function Platform() {
     if (!isConnected || actualChainId === LINEA_CHAIN_ID) {
       hasPromptedNetworkSwitch.current = false;
     }
-  }, [isWrongNetwork, switchChain, actualChainId, chain, chainId, isConnected, toast]);
+  }, [isWrongNetwork, switchChain, actualChainId, chain, chainId, isConnected]);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [slug, setSlug] = useState("");
@@ -208,11 +197,7 @@ export default function Platform() {
     resetSetRoot();
     txWaitStartTime.current = null;
     setTxWaitTimeout(false);
-    toast({
-      title: "Transaction Reset",
-      description: "You can try setting the root again.",
-    });
-  }, [resetSetRoot, toast]);
+  }, [resetSetRoot]);
   
   // Reset createProject mutation when moving to step 3 to prevent stale transactions
   useEffect(() => {
@@ -247,17 +232,9 @@ export default function Platform() {
       if (data.proofs) {
         setProofsData(data.proofs);
       }
-      toast({
-        title: "CSV Uploaded",
-        description: `Merkle tree generated with ${data.rowCount} entries`,
-      });
     },
     onError: (error) => {
-      toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to process CSV",
-        variant: "destructive",
-      });
+      console.error("Upload failed:", error instanceof Error ? error.message : "Failed to process CSV");
     },
   });
 
@@ -292,10 +269,6 @@ export default function Platform() {
         setSlugVerified(true);
         setProjectId(null);
         setProjectAdmin(null);
-        toast({
-          title: "Slug Available",
-          description: `"${normalizedSlug}.rwa-id.eth" appears to be available.`,
-        });
         return;
       }
       
@@ -327,10 +300,6 @@ export default function Platform() {
           setIsExistingProject(true);
           setSlugVerified(true);
           
-          toast({
-            title: "Project Found",
-            description: `You own "${normalizedSlug}.rwa-id.eth" (ID: ${existingProjectId}). Upload a new CSV to update the allowlist.`,
-          });
         } else {
           // Project exists but user is not admin
           setSlugCheckError(`This slug is owned by ${admin.slice(0, 6)}...${admin.slice(-4)}. Please use a different slug or switch wallets.`);
@@ -346,10 +315,6 @@ export default function Platform() {
         setGasPrice(null);
         setGasError(null);
         
-        toast({
-          title: "Slug Available",
-          description: `"${normalizedSlug}.rwa-id.eth" is available. You'll create a new project.`,
-        });
       }
     } catch (error: unknown) {
       // Log error details as string to avoid serialization issues
@@ -370,7 +335,7 @@ export default function Platform() {
     } finally {
       setIsCheckingSlug(false);
     }
-  }, [slug, publicClient, address, toast]);
+  }, [slug, publicClient, address]);
 
   // Fetch all projects owned by the connected wallet
   const fetchUserProjects = useCallback(async () => {
@@ -421,18 +386,12 @@ export default function Platform() {
       console.log("Total projects found for user:", projects.length);
       setUserProjects(projects);
       
-      if (projects.length > 0) {
-        toast({
-          title: "Projects Found",
-          description: `You own ${projects.length} project(s). Select one to update or create a new project.`,
-        });
-      }
     } catch (error) {
       console.error("Failed to fetch user projects:", error);
     } finally {
       setIsLoadingProjects(false);
     }
-  }, [publicClient, address, toast]);
+  }, [publicClient, address]);
 
   // Auto-fetch user's projects when wallet connects
   useEffect(() => {
@@ -450,11 +409,7 @@ export default function Platform() {
     setSlugVerified(true);
     setProjectAdmin(address || null);
     
-    toast({
-      title: "Project Selected",
-      description: `"${project.slug}.rwa-id.eth" (ID: ${project.projectId}). Upload a CSV to update the allowlist.`,
-    });
-  }, [address, toast]);
+  }, [address]);
 
   const handleCreateProject = useCallback(() => {
     if (!slug) return;
@@ -465,35 +420,17 @@ export default function Platform() {
       
       // Trigger wallet popup to switch networks
       if (switchChain) {
-        toast({
-          title: "Switching Network",
-          description: "Please approve the network switch in your wallet.",
-        });
         switchChain(
           { chainId: LINEA_CHAIN_ID },
           {
             onSuccess: () => {
-              toast({
-                title: "Network Switched",
-                description: "Now connected to Linea. Please click 'Create Project' again.",
-              });
+              console.log("Network switched to Linea");
             },
             onError: (error) => {
               console.error("Network switch failed:", error);
-              toast({
-                title: "Network Switch Failed",
-                description: "Please manually switch to Linea Mainnet in your wallet.",
-                variant: "destructive",
-              });
             },
           }
         );
-      } else {
-        toast({
-          title: "Wrong Network",
-          description: "Please switch to Linea Mainnet in your wallet.",
-          variant: "destructive",
-        });
       }
       return;
     }
@@ -511,20 +448,13 @@ export default function Platform() {
       chainId: LINEA_CHAIN_ID, // Force Linea Mainnet
     }, {
       onSuccess: () => {
-        toast({
-          title: "Transaction Submitted",
-          description: "Waiting for confirmation...",
-        });
+        console.log("Create project transaction submitted");
       },
       onError: (error) => {
-        toast({
-          title: "Transaction Failed",
-          description: error.message,
-          variant: "destructive",
-        });
+        console.error("Create project transaction failed:", error.message);
       },
     });
-  }, [slug, baseURI, soulbound, projectFee, createProject, toast, actualChainId, switchChain]);
+  }, [slug, baseURI, soulbound, projectFee, createProject, actualChainId, switchChain]);
 
   // Check if current wallet matches project admin (use on-chain data if available, fallback to stored)
   const effectiveAdmin = onChainAdmin || projectAdmin;
@@ -608,11 +538,6 @@ export default function Platform() {
       setEstimatedGas(gasEstimate);
       setGasPrice(currentGasPrice);
       
-      toast({
-        title: "Gas Estimated",
-        description: `~${Number(gasEstimate).toLocaleString()} gas units`,
-      });
-      
     } catch (error) {
       console.error("Gas estimation failed:", error);
       console.log("Connected address:", address);
@@ -643,7 +568,7 @@ export default function Platform() {
     } finally {
       setIsEstimatingGas(false);
     }
-  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin, toast]);
+  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin]);
 
   const handleSetAllowlistRoot = useCallback(() => {
     // CRITICAL: Check we're on the right network FIRST
@@ -652,35 +577,17 @@ export default function Platform() {
       
       // Trigger wallet popup to switch networks
       if (switchChain) {
-        toast({
-          title: "Switching Network",
-          description: "Please approve the network switch in your wallet.",
-        });
         switchChain(
           { chainId: LINEA_CHAIN_ID },
           {
             onSuccess: () => {
-              toast({
-                title: "Network Switched",
-                description: "Now connected to Linea. Please click 'Set Allowlist Root' again.",
-              });
+              console.log("Network switched to Linea");
             },
             onError: (error) => {
               console.error("Network switch failed:", error);
-              toast({
-                title: "Network Switch Failed",
-                description: "Please manually switch to Linea Mainnet in your wallet.",
-                variant: "destructive",
-              });
             },
           }
         );
-      } else {
-        toast({
-          title: "Wrong Network",
-          description: "Please switch to Linea Mainnet in your wallet.",
-          variant: "destructive",
-        });
       }
       return;
     }
@@ -688,31 +595,16 @@ export default function Platform() {
     // HARD GUARD: Ensure we have a valid projectId - NEVER fallback to createProject
     if (!projectId || projectId === BigInt(0)) {
       console.error("handleSetAllowlistRoot BLOCKED - Project not created yet");
-      toast({
-        title: "Project Not Created",
-        description: "Please complete Step 2 to create your project first.",
-        variant: "destructive",
-      });
       return;
     }
     
     if (!merkleRoot) {
       console.error("handleSetAllowlistRoot BLOCKED - No merkle root");
-      toast({
-        title: "Missing Merkle Root",
-        description: "Please upload a CSV in Step 3 first.",
-        variant: "destructive",
-      });
       return;
     }
     
     if (!estimatedGas) {
       console.error("handleSetAllowlistRoot BLOCKED - No gas estimate");
-      toast({
-        title: "Gas Not Estimated",
-        description: "Please wait for gas estimation to complete.",
-        variant: "destructive",
-      });
       return;
     }
     
@@ -746,11 +638,6 @@ export default function Platform() {
     
     if (actualSelector !== expectedSelector) {
       console.error("SELECTOR MISMATCH! Expected:", expectedSelector, "Got:", actualSelector);
-      toast({
-        title: "Internal Error",
-        description: "Function selector mismatch. Please refresh and try again.",
-        variant: "destructive",
-      });
       return;
     }
     
@@ -767,22 +654,13 @@ export default function Platform() {
       onSuccess: (hash) => {
         console.log("=== setAllowlistRoot onSuccess ===");
         console.log("Transaction hash:", hash);
-        toast({
-          title: "Transaction Submitted",
-          description: "Setting allowlist root...",
-        });
       },
       onError: (error) => {
         console.error("=== setAllowlistRoot onError ===");
         console.error("setAllowlistRoot transaction error:", error);
-        toast({
-          title: "Transaction Failed",
-          description: error.message,
-          variant: "destructive",
-        });
       },
     });
-  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, toast, actualChainId, switchChain]);
+  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, actualChainId, switchChain]);
 
   
   const downloadProofsJson = useCallback(() => {
@@ -811,11 +689,7 @@ export default function Platform() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    toast({
-      title: "Proofs Downloaded",
-      description: "Host this file on your servers for users to claim.",
-    });
-  }, [proofsData, slugHash, projectId, slug, merkleRoot, validFrom, validTo, toast]);
+  }, [proofsData, slugHash, projectId, slug, merkleRoot, validFrom, validTo]);
 
   const handleUploadCSV = () => {
     if (!csvText || !slug) return;
@@ -899,18 +773,14 @@ export default function Platform() {
           attempts++;
           setTimeout(retryFetch, 2000);
         } else if (!success) {
-          toast({
-            title: "Could not verify project",
-            description: "Please refresh the page and try again.",
-            variant: "destructive",
-          });
+          console.error("Could not verify project - please refresh the page and try again");
         }
       };
       
       const timer = setTimeout(retryFetch, 1500);
       return () => clearTimeout(timer);
     }
-  }, [createSuccess, projectId, slug, refetchProjectId, toast, address, projectAdmin]);
+  }, [createSuccess, projectId, slug, refetchProjectId, address, projectAdmin]);
 
   // Auto-estimate gas when entering setroot step with all required data
   useEffect(() => {
