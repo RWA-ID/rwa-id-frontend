@@ -115,6 +115,10 @@ export default function Platform() {
     },
   });
   
+  // Track transaction wait timeout
+  const [txWaitTimeout, setTxWaitTimeout] = useState(false);
+  const txWaitStartTime = useRef<number | null>(null);
+  
   // Debug: Monitor setRoot transaction state
   useEffect(() => {
     console.log("=== SetRoot State Debug ===");
@@ -126,6 +130,43 @@ export default function Platform() {
     console.log("setRootError:", setRootError);
     console.log("receiptError:", receiptError);
   }, [setRootTxHash, isSettingRoot, isWaitingSetRoot, setRootSuccess, receiptStatus, setRootError, receiptError]);
+  
+  // Detect stuck transactions with timeout
+  useEffect(() => {
+    if (setRootTxHash && isWaitingSetRoot && !setRootSuccess) {
+      // Start tracking time
+      if (!txWaitStartTime.current) {
+        txWaitStartTime.current = Date.now();
+      }
+      
+      // Set up interval to check timeout
+      const interval = setInterval(() => {
+        if (txWaitStartTime.current) {
+          const elapsed = Date.now() - txWaitStartTime.current;
+          if (elapsed > 60000 && !txWaitTimeout) {
+            console.warn("Transaction wait timeout - may have been dropped");
+            setTxWaitTimeout(true);
+          }
+        }
+      }, 5000); // Check every 5 seconds
+      
+      return () => clearInterval(interval);
+    } else if (setRootSuccess || !setRootTxHash) {
+      txWaitStartTime.current = null;
+      if (txWaitTimeout) setTxWaitTimeout(false);
+    }
+  }, [setRootTxHash, isWaitingSetRoot, setRootSuccess, txWaitTimeout]);
+  
+  // Reset stuck transaction
+  const handleResetTransaction = useCallback(() => {
+    resetSetRoot();
+    txWaitStartTime.current = null;
+    setTxWaitTimeout(false);
+    toast({
+      title: "Transaction Reset",
+      description: "You can try setting the root again.",
+    });
+  }, [resetSetRoot, toast]);
   
   // Reset createProject mutation when moving to step 3 to prevent stale transactions
   useEffect(() => {
@@ -1274,26 +1315,61 @@ export default function Platform() {
                 </>
               )}
               
-              <Button
-                onClick={handleSetAllowlistRoot}
-                disabled={!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess || isWalletMismatch}
-                className="w-full"
-                data-testid="button-set-root"
-              >
-                {isSettingRoot || isWaitingSetRoot ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isSettingRoot ? "Confirm in Wallet..." : "Setting Root..."}
-                  </>
-                ) : setRootSuccess ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Root Set Successfully
-                  </>
-                ) : (
-                  "Set Allowlist Root"
-                )}
-              </Button>
+              {txWaitTimeout && isWaitingSetRoot ? (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-destructive">Transaction may have been dropped</p>
+                        <p className="text-xs text-muted-foreground">
+                          The transaction was sent but hasn't been confirmed. This can happen due to network issues. 
+                          You can reset and try again, or check your wallet for the pending transaction.
+                        </p>
+                        {setRootTxHash && (
+                          <a
+                            href={`https://lineascan.build/tx/${setRootTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            Check on Lineascan <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleResetTransaction}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-reset-tx"
+                  >
+                    Reset and Try Again
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleSetAllowlistRoot}
+                  disabled={!merkleRoot || !projectId || !estimatedGas || isSettingRoot || isWaitingSetRoot || setRootSuccess || isWalletMismatch}
+                  className="w-full"
+                  data-testid="button-set-root"
+                >
+                  {isSettingRoot || isWaitingSetRoot ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isSettingRoot ? "Confirm in Wallet..." : "Setting Root..."}
+                    </>
+                  ) : setRootSuccess ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Root Set Successfully
+                    </>
+                  ) : (
+                    "Set Allowlist Root"
+                  )}
+                </Button>
+              )}
               
               {setRootTxHash && (
                 <a
