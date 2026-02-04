@@ -34,7 +34,7 @@ if (projectId) {
     enableWalletConnect: true,
     enableInjected: true,
     enableEIP6963: true,
-    allowUnsupportedChain: false,
+    allowUnsupportedChain: true, // Let our app handle network switching to avoid double prompts
     enableNetworkSwitch: false,
   });
 }
