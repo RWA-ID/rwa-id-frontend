@@ -166,6 +166,48 @@ export default function Landing() {
                 </CardContent>
               </Card>
             </div>
+
+            <div className="mt-12 max-w-3xl mx-auto">
+              <Card className="border-0 shadow-md">
+                <CardContent className="pt-6 space-y-5">
+                  <p className="text-lg text-muted-foreground">
+                    RWA ID is not here to replace your existing KYC, compliance, or internal identity systems.
+                  </p>
+                  <p className="text-lg font-semibold text-foreground">
+                    It's here to complement them.
+                  </p>
+                  <p className="text-muted-foreground">
+                    RWA ID lets platforms issue human-readable, on-chain identities to wallets that are already verified in your system.
+                  </p>
+                  <ul className="space-y-3">
+                    {[
+                      "Wallets get names instead of hex addresses",
+                      "Names are verifiable on-chain",
+                      "Platforms keep full control of compliance off-chain",
+                      "Clients gain a safer way to send & receive RWAs",
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CheckCircle className="w-3 h-3 text-primary" />
+                        </div>
+                        <span className="text-foreground">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="bg-muted rounded-lg px-4 py-3">
+                    <p className="text-xs text-muted-foreground mb-1">Example</p>
+                    <p className="font-mono text-primary font-medium" data-testid="text-example-identity">joe.test.rwa-id.eth</p>
+                  </div>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>No new trust assumptions.</p>
+                    <p>No changes to your KYC stack.</p>
+                    <p className="text-foreground font-medium">
+                      Just an extra identity layer that improves UX, verification, and security.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </section>
 
