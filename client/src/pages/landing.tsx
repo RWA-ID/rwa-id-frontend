@@ -21,7 +21,7 @@ import {
   Zap,
   FileText,
 } from "lucide-react";
-import { SiGithub, SiX } from "react-icons/si";
+import { SiGithub, SiX, SiEthereum, SiPolygon } from "react-icons/si";
 import { useState } from "react";
 import lineaLogo from "@assets/Wordmark_Blue_BG_1768681663242.png";
 
@@ -323,6 +323,78 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
+                Cross-Chain Name Resolution
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                RWA ID names resolve across major blockchains and wallets via Chainlink CCIP
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              <Card className="border-0 shadow-md">
+                <CardContent className="pt-6">
+                  <h3 className="font-heading text-lg font-semibold mb-5">Supported Blockchains</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { name: "Ethereum", icon: <SiEthereum className="w-5 h-5" />, color: "text-[#627EEA]" },
+                      { name: "Linea", icon: <img src={lineaLogo} alt="Linea" className="w-5 h-5 object-contain" />, color: "" },
+                      { name: "Base", icon: <svg className="w-5 h-5" viewBox="0 0 111 111" fill="none"><path d="M54.921 110.034C85.359 110.034 110.034 85.402 110.034 55.017C110.034 24.6319 85.359 0 54.921 0C26.0432 0 2.35281 22.1714 0 50.3923H72.8467V59.6416H0C2.35281 87.8625 26.0432 110.034 54.921 110.034Z" fill="#0052FF"/></svg>, color: "" },
+                      { name: "Optimism", icon: <svg className="w-5 h-5" viewBox="0 0 500 500" fill="none"><circle cx="250" cy="250" r="250" fill="#FF0420"/><path d="M177.133 316.446C162.247 316.446 150.051 312.943 140.544 305.938C131.162 298.808 126.471 289.238 126.471 277.228C126.471 274.724 126.721 271.596 127.221 267.843L140.044 194.538H170.379L157.806 266.344C157.556 267.843 157.431 269.592 157.431 271.596C157.431 281.478 163.122 286.419 174.504 286.419C183.261 286.419 190.643 283.541 196.647 277.728C202.776 271.784 206.842 263.905 208.841 254.148L220.165 194.538H250.499L233.115 284.29C232.49 287.294 232.178 289.674 232.178 291.428C232.178 293.058 232.615 294.307 233.49 295.181C234.49 295.931 236.114 296.306 238.363 296.306L233.115 316.196C227.236 317.695 222.232 318.445 218.103 318.445C211.474 318.445 206.592 317.07 203.468 314.317C200.469 311.563 198.845 307.935 198.595 303.433C186.338 312.443 172.379 316.946 156.618 316.946L177.133 316.446Z" fill="white"/><path d="M289.282 316.446C276.147 316.446 265.39 312.693 257.008 305.188C248.751 297.558 244.622 287.669 244.622 275.534C244.622 272.405 244.997 269.027 245.747 265.399C248.876 249.584 255.568 237.137 265.828 228.064C276.085 218.991 288.657 214.455 303.542 214.455C316.677 214.455 327.434 218.208 335.816 225.713C344.073 233.218 348.202 243.107 348.202 255.367C348.202 258.371 347.827 261.749 347.077 265.502C343.948 281.192 337.131 293.577 326.624 302.65C316.242 311.848 303.667 316.446 289.282 316.446ZM291.406 287.169C299.163 287.169 305.793 284.165 311.297 278.103C316.927 271.971 320.618 263.78 322.367 253.523C322.742 251.019 322.867 248.765 322.867 246.761C322.867 236.629 317.301 231.563 306.169 231.563C298.412 231.563 291.781 234.567 286.278 240.629C280.774 246.636 277.083 254.89 275.208 265.399C274.833 267.528 274.708 269.782 274.708 272.036C274.708 282.043 280.274 287.169 291.406 287.169Z" fill="white"/></svg>, color: "" },
+                      { name: "Arbitrum", icon: <svg className="w-5 h-5" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="20" fill="#213147"/><path d="M24.076 21.843l1.858-3.152 4.089 6.885-.003 1.476-2.028-3.392-3.916-1.817z" fill="#12AAFF"/><path d="M20.306 14.312l3.77 6.33-3.916 1.817-.09-.15-3.764-6.304 3.47-1.466.53-.227z" fill="#9DCCED"/><path d="M27.979 13.397l.003.135v12.505l-1.95 1.1-1.956-3.294-3.77-6.33.53-.227L27.979 13.397z" fill="white"/><path d="M12.024 26.037l.003-12.505 5.893 2.49.09.15 3.764 6.304-3.916 1.817-3.878 6.544-1.956-1.1v-3.7z" fill="white"/><path d="M12.024 26.037v3.7l1.956 1.1 3.878-6.544 1.858-3.152-3.77-6.33 5.893-2.49-.003-.135-6.812 2.876-3 1.275v9.7z" fill="#213147"/></svg>, color: "" },
+                      { name: "Polygon", icon: <SiPolygon className="w-5 h-5" />, color: "text-[#8247E5]" },
+                    ].map((chain) => (
+                      <div key={chain.name} className="flex items-center gap-3 p-2" data-testid={`chain-${chain.name.toLowerCase()}`}>
+                        <div className={`flex-shrink-0 ${chain.color}`}>
+                          {chain.icon}
+                        </div>
+                        <span className="text-sm font-medium">{chain.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-md">
+                <CardContent className="pt-6">
+                  <h3 className="font-heading text-lg font-semibold mb-5">Native Wallet Support</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { name: "MetaMask", color: "#F6851B", letter: "M" },
+                      { name: "Trust", color: "#0500FF", letter: "T" },
+                      { name: "Rainbow", color: "#001E59", letter: "R" },
+                      { name: "Uniswap", color: "#FF007A", letter: "U" },
+                    ].map((wallet) => (
+                      <div key={wallet.name} className="flex items-center gap-3 p-2" data-testid={`wallet-${wallet.name.toLowerCase()}`}>
+                        <div
+                          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
+                          style={{ backgroundColor: wallet.color }}
+                        >
+                          {wallet.letter}
+                        </div>
+                        <span className="text-sm font-medium">{wallet.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-5">
+                    And all blockchain scanners that support CCIP read
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex justify-center mt-10">
+              <a href="https://chain.link/" target="_blank" rel="noopener noreferrer" data-testid="link-chainlink-badge">
+                <img src="https://chain.link/badge-cross-chain-white" alt="CCIP secured with Chainlink" className="h-12 dark:block hidden" />
+                <img src="https://chain.link/badge-cross-chain-black" alt="CCIP secured with Chainlink" className="h-12 dark:hidden block" />
+              </a>
+            </div>
           </div>
         </section>
 
