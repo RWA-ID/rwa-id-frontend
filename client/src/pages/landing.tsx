@@ -167,46 +167,84 @@ export default function Landing() {
               </Card>
             </div>
 
-            <div className="mt-12 max-w-3xl mx-auto">
-              <Card className="border-0 shadow-md">
-                <CardContent className="pt-6 space-y-5">
-                  <p className="text-lg text-muted-foreground">
-                    RWA ID is not here to replace your existing KYC, compliance, or internal identity systems.
+            <div className="mt-12 grid lg:grid-cols-2 gap-8 items-center">
+              <div className="space-y-5">
+                <p className="text-lg text-muted-foreground">
+                  RWA ID is not here to replace your existing KYC, compliance, or internal identity systems.
+                </p>
+                <p className="text-lg font-semibold text-foreground">
+                  It's here to complement them.
+                </p>
+                <p className="text-muted-foreground">
+                  RWA ID lets platforms issue human-readable, on-chain identities to wallets that are already verified in your system.
+                </p>
+                <ul className="space-y-3">
+                  {[
+                    "Wallets get names instead of hex addresses",
+                    "Names are verifiable on-chain",
+                    "Platforms keep full control of compliance off-chain",
+                    "Clients gain a safer way to send & receive RWAs",
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <CheckCircle className="w-3 h-3 text-primary" />
+                      </div>
+                      <span className="text-foreground">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>No new trust assumptions.</p>
+                  <p>No changes to your KYC stack.</p>
+                  <p className="text-foreground font-medium">
+                    Just an extra identity layer that improves UX, verification, and security.
                   </p>
-                  <p className="text-lg font-semibold text-foreground">
-                    It's here to complement them.
-                  </p>
-                  <p className="text-muted-foreground">
-                    RWA ID lets platforms issue human-readable, on-chain identities to wallets that are already verified in your system.
-                  </p>
-                  <ul className="space-y-3">
-                    {[
-                      "Wallets get names instead of hex addresses",
-                      "Names are verifiable on-chain",
-                      "Platforms keep full control of compliance off-chain",
-                      "Clients gain a safer way to send & receive RWAs",
-                    ].map((item, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <CheckCircle className="w-3 h-3 text-primary" />
-                        </div>
-                        <span className="text-foreground">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="bg-muted rounded-lg px-4 py-3">
-                    <p className="text-xs text-muted-foreground mb-1">Example</p>
-                    <p className="font-mono text-primary font-medium" data-testid="text-example-identity">joe.test.rwa-id.eth</p>
+                </div>
+              </div>
+
+              <div className="relative max-w-sm mx-auto w-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-3xl" />
+                <div className="relative bg-card rounded-2xl border shadow-lg p-6 m-4 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Fingerprint className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-heading font-semibold">Joe Smith</p>
+                      <p className="text-xs text-muted-foreground font-mono">0x7a3b...9f2d</p>
+                    </div>
                   </div>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p>No new trust assumptions.</p>
-                    <p>No changes to your KYC stack.</p>
-                    <p className="text-foreground font-medium">
-                      Just an extra identity layer that improves UX, verification, and security.
-                    </p>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs text-muted-foreground">Resolved Identity</span>
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">Verified</span>
+                      </div>
+                    </div>
+                    <div className="bg-muted rounded-lg px-4 py-3">
+                      <p className="font-mono text-primary font-semibold text-center" data-testid="text-example-identity">joe.test.rwa-id.eth</p>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="bg-muted/50 rounded-lg px-3 py-2">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Type</p>
+                      <p className="text-xs font-medium">Soulbound</p>
+                    </div>
+                    <div className="bg-muted/50 rounded-lg px-3 py-2">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Network</p>
+                      <p className="text-xs font-medium">Linea</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-1">
+                    <Shield className="w-3.5 h-3.5 text-primary" />
+                    <span>KYC verified off-chain &middot; Identity on-chain</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
