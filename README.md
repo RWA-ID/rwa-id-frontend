@@ -4,7 +4,7 @@ Frontend for **RWA ID** — identity infrastructure for RWA platforms and client
 
 - Website: https://rwa-id.com
 - Protocol / contracts: https://github.com/RWA-ID/RWA-ID
-- Contact: info@onchain-id.id
+- Contact: partner@rwa-id.com
 
 ## Development
 
