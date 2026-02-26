@@ -2,7 +2,7 @@
 
 Frontend for **RWA ID** — identity infrastructure for RWA platforms and client wallets.
 
-Powered by Linea + Ethereum + ENS + Chainlink CCIP.
+Powered by Ethereum + ENS + Chainlink CCIP.
 
 - Website: https://rwa-id.com
 - Protocol / contracts: https://github.com/RWA-ID/RWA-ID
