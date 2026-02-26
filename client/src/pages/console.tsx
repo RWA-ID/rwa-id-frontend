@@ -277,56 +277,61 @@ export default function Platform() {
       
       if (foundProjectId === null) {
         // Project doesn't exist yet — check if slug is reserved
-        const reservedAddr = await publicClient.readContract({
-          address: RWAID_V2_ADDRESS,
-          abi: rwaIdV2Abi,
-          functionName: "reservedTo",
-          args: [computedSlugHash],
-        }) as string;
+        try {
+          const reservedAddr = await publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "reservedTo",
+            args: [computedSlugHash],
+          }) as string;
 
-        const expiry = await publicClient.readContract({
-          address: RWAID_V2_ADDRESS,
-          abi: rwaIdV2Abi,
-          functionName: "reservationExpiry",
-          args: [computedSlugHash],
-        }) as bigint;
+          const expiry = await publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "reservationExpiry",
+            args: [computedSlugHash],
+          }) as bigint;
 
-        const zeroAddress = "0x0000000000000000000000000000000000000000";
-        const now = Math.floor(Date.now() / 1000);
-        const isReserved = reservedAddr !== zeroAddress && now < Number(expiry);
+          const zeroAddress = "0x0000000000000000000000000000000000000000";
+          const now = Math.floor(Date.now() / 1000);
+          const isReserved = reservedAddr !== zeroAddress && now < Number(expiry);
 
-        if (isReserved && reservedAddr.toLowerCase() !== address.toLowerCase()) {
-          setSlugCheckError(`This slug is reserved for ${reservedAddr.slice(0, 6)}...${reservedAddr.slice(-4)}. Please choose a different slug.`);
+          if (isReserved && reservedAddr.toLowerCase() !== address.toLowerCase()) {
+            setSlugCheckError(`This project slug has been reserved. Please choose a different slug.`);
+            setProjectId(null);
+            setProjectAdmin(null);
+          } else if (isReserved && reservedAddr.toLowerCase() === address.toLowerCase()) {
+            setIsExistingProject(false);
+            setSlugVerified(true);
+            setProjectId(null);
+            setProjectAdmin(null);
+            setEstimatedGas(null);
+            setGasPrice(null);
+            setGasError(null);
+          } else {
+            setIsExistingProject(false);
+            setSlugVerified(true);
+            setProjectId(null);
+            setProjectAdmin(null);
+            setEstimatedGas(null);
+            setGasPrice(null);
+            setGasError(null);
+          }
+        } catch (reservationError) {
+          console.error("Reservation check failed, slug may be reserved:", reservationError);
+          setSlugCheckError("This project slug may be reserved. Please try again or choose a different slug.");
           setProjectId(null);
           setProjectAdmin(null);
-        } else if (isReserved && reservedAddr.toLowerCase() === address.toLowerCase()) {
-          // Reserved to the connected wallet — they can proceed
-          setIsExistingProject(false);
-          setSlugVerified(true);
-          setProjectId(null);
-          setProjectAdmin(null);
-          setEstimatedGas(null);
-          setGasPrice(null);
-          setGasError(null);
-        } else {
-          // Available (or reserved to the connected wallet)
-          setIsExistingProject(false);
-          setSlugVerified(true);
-          setProjectId(null);
-          setProjectAdmin(null);
-          setEstimatedGas(null);
-          setGasPrice(null);
-          setGasError(null);
         }
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Slug check failed:", errorMessage);
       
-      if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("Failed to fetch")) {
-        setSlugCheckError("Network error. Please check your connection and try again.");
+      if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("Failed to fetch") || errorMessage.includes("HTTP request failed")) {
+        setSlugCheckError("Unable to verify slug availability. Please wait a moment and try again.");
       } else if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
-        setSlugCheckError("RPC rate limited. Please wait a moment and try again.");
+        setSlugCheckError("Too many requests. Please wait a moment and try again.");
       } else if (errorMessage.includes("timeout")) {
         setSlugCheckError("Request timed out. Please try again.");
       } else {
@@ -962,7 +967,7 @@ export default function Platform() {
                     </p>
                   </div>
                   
-                  {slugCheckError && slugCheckError.includes("reserved") && (
+                  {slugCheckError && slugCheckError.toLowerCase().includes("reserved") && (
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20" data-testid="slug-check-reserved">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
@@ -970,7 +975,7 @@ export default function Platform() {
                       </div>
                     </div>
                   )}
-                  {slugCheckError && !slugCheckError.includes("reserved") && (
+                  {slugCheckError && !slugCheckError.toLowerCase().includes("reserved") && (
                     <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20" data-testid="slug-check-error">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
