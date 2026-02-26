@@ -10,7 +10,6 @@ import {
 import { NavBar } from "@/components/nav-bar";
 import {
   Building2,
-  Users,
   Shield,
   Upload,
   CheckCircle,
@@ -69,12 +68,6 @@ export default function Landing() {
                     <Button size="lg" className="rounded-full px-8" data-testid="button-platform-console">
                       <Building2 className="mr-2 h-5 w-5" />
                       Platform Console
-                    </Button>
-                  </Link>
-                  <Link href="/claim">
-                    <Button variant="outline" size="lg" className="rounded-full px-8" data-testid="button-claim-identity">
-                      <Users className="mr-2 h-5 w-5" />
-                      Claim Identity
                     </Button>
                   </Link>
                 </div>
@@ -237,13 +230,13 @@ export default function Landing() {
                   For Users
                 </h2>
                 <p className="text-lg text-muted-foreground mb-8">
-                  Claim your verified identity with a simple, gas-efficient process
+                  Claim your verified on-chain identity through your RWA platform
                 </p>
                 <ul className="space-y-4">
                   {[
-                    "Connect your wallet and enter your assigned name",
-                    "Automatic eligibility check via Merkle proof",
-                    "Claim your soulbound identity token",
+                    "Your platform provides you with a unique claim URL",
+                    "Connect your wallet and your identity is automatically detected",
+                    "Approve any claim fee and sign the transaction",
                     "Receive your resolved name: name.slug.rwa-id.eth",
                   ].map((item, i) => (
                     <li key={i} className="flex items-start gap-3">
@@ -261,17 +254,11 @@ export default function Landing() {
                     <Fingerprint className="w-10 h-10 text-primary" />
                   </div>
                   <div>
-                    <p className="font-heading text-xl font-semibold mb-2">Ready to Claim?</p>
-                    <p className="text-muted-foreground mb-6">
-                      If you have been assigned an identity by a platform, you can claim it now.
+                    <p className="font-heading text-xl font-semibold mb-2">How Do I Claim?</p>
+                    <p className="text-muted-foreground">
+                      Your RWA platform will provide you with a claim link once your identity has been assigned. Simply open the link, connect your wallet, and claim your soulbound identity token.
                     </p>
                   </div>
-                  <Link href="/claim">
-                    <Button className="w-full" size="lg" data-testid="button-claim-cta">
-                      <Fingerprint className="mr-2 h-5 w-5" />
-                      Go to Claim Page
-                    </Button>
-                  </Link>
                 </div>
               </div>
             </div>
@@ -338,6 +325,19 @@ export default function Landing() {
 hector,0x1234567890abcdef1234567890abcdef12345678
 alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                   </pre>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="claiming" className="bg-card rounded-xl border px-6">
+                <AccordionTrigger className="text-left font-semibold" data-testid="accordion-claiming">
+                  How Do Users Claim Their Identity?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-4">
+                  <p className="mb-2">
+                    After a platform uploads its allowlist and sets the Merkle root on-chain, a unique claim URL is generated. The platform shares this URL with its users.
+                  </p>
+                  <p>
+                    Users simply open the link, connect their wallet, and their identity is automatically detected from the proof file stored on IPFS. If a claim fee is set, they approve the USDC spend and then claim their soulbound identity token in a single flow.
+                  </p>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
