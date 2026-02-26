@@ -388,55 +388,93 @@ export default function ClaimIpfs({ params }: { params: { projectId: string; cid
                     </div>
                   </div>
 
-                  {needsApproval && (
-                    <Button
-                      onClick={handleApprove}
-                      disabled={isBusy}
-                      className="w-full"
-                      data-testid="button-approve-usdc"
-                    >
-                      {isApprovePending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Confirm in Wallet...
-                        </>
-                      ) : isWaitingApprove ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Approving USDC...
-                        </>
-                      ) : (
-                        `Step 1 — Approve ${feeDisplay}`
-                      )}
-                    </Button>
+                  {effectiveFee > BigInt(0) && usdcBalance !== undefined && (usdcBalance as bigint) < effectiveFee && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20" data-testid="warning-insufficient-balance">
+                      <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-destructive">
+                        Insufficient USDC balance. You need {feeDisplay} to claim.
+                      </p>
+                    </div>
                   )}
 
-                  <Button
-                    onClick={handleClaim}
-                    disabled={needsApproval || isBusy}
-                    className="w-full"
-                    variant={needsApproval ? "outline" : "default"}
-                    data-testid="button-claim-identity"
-                  >
-                    {isClaimPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Confirm in Wallet...
-                      </>
-                    ) : isWaitingClaim ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Claiming...
-                      </>
-                    ) : needsApproval ? (
-                      "Step 2 — Claim Identity (approve first)"
-                    ) : (
-                      <>
-                        <Shield className="w-4 h-4 mr-2" />
-                        Claim Identity
-                      </>
-                    )}
-                  </Button>
+                  {needsApproval && effectiveFee > BigInt(0) && (
+                    <div className="flex items-center gap-3 px-1" data-testid="step-progress">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                        step === "approving" || isApprovePending || isWaitingApprove
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        1
+                      </div>
+                      <div className="flex-1 h-0.5 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full bg-primary transition-all duration-500 ${
+                          approveSuccess || step === "claiming" ? "w-full" : "w-0"
+                        }`} />
+                      </div>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                        step === "claiming" || isClaimPending || isWaitingClaim
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}>
+                        2
+                      </div>
+                    </div>
+                  )}
+
+                  {(() => {
+                    const insufficientBalance = effectiveFee > BigInt(0) && usdcBalance !== undefined && (usdcBalance as bigint) < effectiveFee;
+
+                    if (needsApproval) {
+                      return (
+                        <Button
+                          onClick={handleApprove}
+                          disabled={isBusy || insufficientBalance}
+                          className="w-full"
+                          data-testid="button-approve-usdc"
+                        >
+                          {isApprovePending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Confirm in Wallet... (1 of 2)
+                            </>
+                          ) : isWaitingApprove ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Approving USDC... (1 of 2)
+                            </>
+                          ) : (
+                            <>Approve {feeDisplay}</>
+                          )}
+                        </Button>
+                      );
+                    }
+
+                    return (
+                      <Button
+                        onClick={handleClaim}
+                        disabled={isBusy}
+                        className="w-full"
+                        data-testid="button-claim-identity"
+                      >
+                        {isClaimPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            {effectiveFee > BigInt(0) ? "Confirm in Wallet... (2 of 2)" : "Confirm in Wallet..."}
+                          </>
+                        ) : isWaitingClaim ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            {effectiveFee > BigInt(0) ? "Claiming Identity... (2 of 2)" : "Claiming Identity..."}
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-4 h-4 mr-2" />
+                            Claim Identity
+                          </>
+                        )}
+                      </Button>
+                    );
+                  })()}
 
                   {projectTransferable !== undefined && (
                     <p className="text-xs text-muted-foreground text-center">
