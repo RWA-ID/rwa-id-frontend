@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient, useChainId } from "wagmi";
-import { linea } from "wagmi/chains";
 import { keccak256, toBytes, parseEther, formatEther, encodeFunctionData, formatGwei, parseAbiItem } from "viem";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Stepper } from "@/components/stepper";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
+import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
 import { apiRequest } from "@/lib/queryClient";
 import type { UploadResponse } from "@shared/schema";
 import {
@@ -43,24 +42,24 @@ export default function Platform() {
   // Check if on wrong network - use chainId hook which works even for unsupported chains
   // chain.id may be undefined if wallet is on unsupported chain, but chainId from useChainId() returns actual ID
   const actualChainId = chain?.id ?? chainId;
-  const isWrongNetwork = isConnected && actualChainId !== LINEA_CHAIN_ID;
+  const isWrongNetwork = isConnected && actualChainId !== CHAIN_ID;
   
   // Track if we've already prompted for network switch to avoid spamming
   const hasPromptedNetworkSwitch = useRef(false);
   
-  // Auto-prompt wallet to switch to Linea when connected to wrong network
+  // Auto-prompt wallet to switch to Ethereum when connected to wrong network
   useEffect(() => {
     if (isWrongNetwork && switchChain && !hasPromptedNetworkSwitch.current) {
       hasPromptedNetworkSwitch.current = true;
-      console.log("Auto-prompting wallet to switch to Linea. Current chain:", actualChainId, "(chain.id:", chain?.id, "chainId hook:", chainId, ")");
+      console.log("Auto-prompting wallet to switch to Ethereum. Current chain:", actualChainId, "(chain.id:", chain?.id, "chainId hook:", chainId, ")");
       
       // Small delay to let wallet UI settle
       const timer = setTimeout(() => {
         switchChain(
-          { chainId: LINEA_CHAIN_ID },
+          { chainId: CHAIN_ID },
           {
             onSuccess: () => {
-              console.log("Successfully switched to Linea!");
+              console.log("Successfully switched to Ethereum!");
             },
             onError: (error) => {
               console.error("Failed to switch network:", error);
@@ -73,7 +72,7 @@ export default function Platform() {
     }
     
     // Reset the flag when user disconnects or switches to correct network
-    if (!isConnected || actualChainId === LINEA_CHAIN_ID) {
+    if (!isConnected || actualChainId === CHAIN_ID) {
       hasPromptedNetworkSwitch.current = false;
     }
   }, [isWrongNetwork, switchChain, actualChainId, chain, chainId, isConnected]);
@@ -415,16 +414,16 @@ export default function Platform() {
     if (!slug) return;
     
     // CRITICAL: Check we're on the right network FIRST
-    if (actualChainId !== LINEA_CHAIN_ID) {
-      console.error("handleCreateProject BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", LINEA_CHAIN_ID);
+    if (actualChainId !== CHAIN_ID) {
+      console.error("handleCreateProject BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", CHAIN_ID);
       
       // Trigger wallet popup to switch networks
       if (switchChain) {
         switchChain(
-          { chainId: LINEA_CHAIN_ID },
+          { chainId: CHAIN_ID },
           {
             onSuccess: () => {
-              console.log("Network switched to Linea");
+              console.log("Network switched to Ethereum");
             },
             onError: (error) => {
               console.error("Network switch failed:", error);
@@ -445,7 +444,7 @@ export default function Platform() {
       functionName: "createProjectWithSlug",
       args: [slug.trim().toLowerCase(), soulbound, baseURI],
       value: fee,
-      chainId: LINEA_CHAIN_ID, // Force Linea Mainnet
+      chainId: CHAIN_ID, // Force Ethereum Mainnet
     }, {
       onSuccess: () => {
         console.log("Create project transaction submitted");
@@ -572,16 +571,16 @@ export default function Platform() {
 
   const handleSetAllowlistRoot = useCallback(() => {
     // CRITICAL: Check we're on the right network FIRST
-    if (actualChainId !== LINEA_CHAIN_ID) {
-      console.error("handleSetAllowlistRoot BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", LINEA_CHAIN_ID);
+    if (actualChainId !== CHAIN_ID) {
+      console.error("handleSetAllowlistRoot BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", CHAIN_ID);
       
       // Trigger wallet popup to switch networks
       if (switchChain) {
         switchChain(
-          { chainId: LINEA_CHAIN_ID },
+          { chainId: CHAIN_ID },
           {
             onSuccess: () => {
-              console.log("Network switched to Linea");
+              console.log("Network switched to Ethereum");
             },
             onError: (error) => {
               console.error("Network switch failed:", error);
@@ -642,14 +641,14 @@ export default function Platform() {
     }
     
     // Call setAllowlistRootForBadge - NEVER createProject
-    // CRITICAL: Explicitly specify chainId to ensure transaction goes to Linea
+    // CRITICAL: Explicitly specify chainId to ensure transaction goes to Ethereum
     setAllowlistRoot({
       address: RWA_ID_REGISTRY_ADDRESS,
       abi: RWA_ID_REGISTRY_ABI,
       functionName: "setAllowlistRootForBadge",
       args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
       gas: estimatedGas + (estimatedGas / BigInt(10)), // Add 10% buffer
-      chainId: LINEA_CHAIN_ID, // Force Linea Mainnet
+      chainId: CHAIN_ID, // Force Ethereum Mainnet
     }, {
       onSuccess: (hash) => {
         console.log("=== setAllowlistRoot onSuccess ===");
@@ -667,7 +666,7 @@ export default function Platform() {
     if (!proofsData || !slugHash || !projectId) return;
     
     const proofsFile = {
-      chainId: LINEA_CHAIN_ID,
+      chainId: CHAIN_ID,
       registry: RWA_ID_REGISTRY_ADDRESS,
       slug: slug.trim().toLowerCase(),
       slugHash: slugHash,
@@ -852,13 +851,13 @@ export default function Platform() {
                 {isWrongNetwork && (
                   <div className="flex items-center gap-2 text-destructive text-sm">
                     <AlertTriangle className="w-4 h-4" />
-                    Please switch to Linea Mainnet
+                    Please switch to Ethereum Mainnet
                   </div>
                 )}
                 {isConnected && !isWrongNetwork && (
                   <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
                     <CheckCircle className="w-4 h-4" />
-                    Connected to Linea Mainnet
+                    Connected to Ethereum Mainnet
                   </div>
                 )}
               </div>
@@ -1085,7 +1084,7 @@ export default function Platform() {
               </Button>
               {createTxHash && (
                 <a
-                  href={`https://lineascan.build/tx/${createTxHash}`}
+                  href={`https://etherscan.io/tx/${createTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -1326,12 +1325,12 @@ export default function Platform() {
                         </p>
                         {setRootTxHash && (
                           <a
-                            href={`https://lineascan.build/tx/${setRootTxHash}`}
+                            href={`https://etherscan.io/tx/${setRootTxHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-primary hover:underline inline-flex items-center gap-1"
                           >
-                            Check on Lineascan <ExternalLink className="w-3 h-3" />
+                            Check on Etherscan <ExternalLink className="w-3 h-3" />
                           </a>
                         )}
                       </div>
@@ -1371,7 +1370,7 @@ export default function Platform() {
               
               {setRootTxHash && (
                 <a
-                  href={`https://lineascan.build/tx/${setRootTxHash}`}
+                  href={`https://etherscan.io/tx/${setRootTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -1395,7 +1394,7 @@ export default function Platform() {
               </div>
               <CardTitle className="font-heading text-2xl">{isExistingProject ? "Allowlist Updated!" : "Project Created!"}</CardTitle>
               <CardDescription>
-                Your RWA-ID namespace is now live on Linea
+                Your RWA-ID namespace is now live on Ethereum
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

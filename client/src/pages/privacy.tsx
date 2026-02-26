@@ -53,7 +53,7 @@ export default function Privacy() {
               <ul className="list-disc pl-6 text-muted-foreground space-y-2">
                 <li>Verify eligibility for identity claims via Merkle proof verification.</li>
                 <li>Generate and store Merkle trees for allowlist management.</li>
-                <li>Facilitate on-chain identity token minting on Linea Mainnet.</li>
+                <li>Facilitate on-chain identity token minting on Ethereum Mainnet.</li>
                 <li>Provide customer support when requested.</li>
               </ul>
             </section>
@@ -61,7 +61,7 @@ export default function Privacy() {
             <section className="space-y-4">
               <h2 className="font-heading text-xl font-semibold">4. Blockchain Data</h2>
               <p className="text-muted-foreground">
-                Please note that blockchain transactions are public and immutable. Once an identity token is minted on Linea, the transaction and associated data become permanently visible on the public blockchain. We cannot delete or modify on-chain data.
+                Please note that blockchain transactions are public and immutable. Once an identity token is minted on Ethereum, the transaction and associated data become permanently visible on the public blockchain. We cannot delete or modify on-chain data.
               </p>
             </section>
 

@@ -2,7 +2,7 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Wallet, LogOut, AlertTriangle, Loader2 } from "lucide-react";
 import { projectId } from "@/lib/wagmi-config";
-import { LINEA_CHAIN_ID } from "@/lib/abi";
+import { CHAIN_ID } from "@/lib/abi";
 
 export function WalletButton() {
   const { address, isConnected, chain, isConnecting } = useAccount();
@@ -10,8 +10,7 @@ export function WalletButton() {
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
-  // Only show wrong network if chain is defined and it's not Linea
-  const isWrongNetwork = isConnected && chain !== undefined && chain.id !== LINEA_CHAIN_ID;
+  const isWrongNetwork = isConnected && chain !== undefined && chain.id !== CHAIN_ID;
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -36,7 +35,7 @@ export function WalletButton() {
   if (isWrongNetwork) {
     return (
       <Button
-        onClick={() => switchChain({ chainId: LINEA_CHAIN_ID })}
+        onClick={() => switchChain({ chainId: CHAIN_ID })}
         variant="destructive"
         disabled={isSwitching}
         className="min-w-[160px]"
@@ -47,7 +46,7 @@ export function WalletButton() {
         ) : (
           <AlertTriangle className="mr-2 h-4 w-4" />
         )}
-        Switch to Linea
+        Switch to Ethereum
       </Button>
     );
   }

@@ -26,7 +26,7 @@ import { useState } from "react";
 import lineaLogo from "@assets/Wordmark_Blue_BG_1768681663242.png";
 import uniswapLogo from "@assets/Uniswap_icon_pink_1771203542816.png";
 
-const CONTRACT_ADDRESS = "0x74aACeff8139c84433befB922a8E687B6ba51F3a";
+const CONTRACT_ADDRESS = "0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2";
 
 export default function Landing() {
   const [copied, setCopied] = useState(false);
@@ -73,9 +73,10 @@ export default function Landing() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-center">
               <div className="lg:col-span-3 space-y-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#61dfff] text-sm font-medium">
-                  <span className="text-black/70">Powered by</span>
-                  <img src={lineaLogo} alt="Linea" className="h-8 object-contain" />
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-sm font-medium">
+                  <span>Powered by</span>
+                  <SiEthereum className="w-4 h-4" />
+                  <span className="font-semibold">Ethereum</span>
                 </div>
                 <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
                   Decentralized Identity
@@ -113,7 +114,7 @@ export default function Landing() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span>Soulbound on Linea</span>
+                      <span>Soulbound on Ethereum</span>
                     </div>
                   </div>
                 </div>
@@ -236,7 +237,7 @@ export default function Landing() {
                     </div>
                     <div className="bg-muted/50 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground mb-0.5">Network</p>
-                      <p className="text-xs font-medium">Linea</p>
+                      <p className="text-xs font-medium">Ethereum</p>
                     </div>
                   </div>
 
@@ -438,15 +439,8 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-12 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <img
-                  src="https://linea.build/favicon.ico"
-                  alt="Linea"
-                  className="w-5 h-5"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                <span>Linea Mainnet</span>
+                <SiEthereum className="w-5 h-5" />
+                <span>Ethereum Mainnet</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -463,7 +457,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                 </button>
               </div>
               <a
-                href={`https://explorer.linea.build/address/${CONTRACT_ADDRESS}?tab=contract`}
+                href={`https://etherscan.io/address/${CONTRACT_ADDRESS}#code`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 hover:text-foreground transition-colors"
@@ -484,7 +478,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                 <Shield className="w-4 h-4 text-primary" />
                 <span className="font-medium">Security & Transparency</span>
               </div>
-              <span>Open-source and verified on Linea</span>
+              <span>Open-source and verified on Ethereum</span>
               <a
                 href="https://solidityscan.com/blocks/cd6665b9a46ee6d73f7d6f77a5e5deb5/14ba207af1a70caa"
                 target="_blank"

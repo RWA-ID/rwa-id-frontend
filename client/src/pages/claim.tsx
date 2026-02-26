@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, LINEA_CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
+import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
 import {
   Fingerprint,
   CheckCircle,
@@ -117,7 +117,7 @@ function ClaimCard({
           </div>
           {claimTxHash && (
             <a
-              href={`https://lineascan.build/tx/${claimTxHash}`}
+              href={`https://etherscan.io/tx/${claimTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400 hover:underline"
@@ -176,7 +176,7 @@ function ClaimCard({
       {claimTxHash && !claimSuccess && (
         <div className="mt-4 pt-4 border-t">
           <a
-            href={`https://lineascan.build/tx/${claimTxHash}`}
+            href={`https://etherscan.io/tx/${claimTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -217,8 +217,8 @@ export default function Claim() {
   
   // Check if on wrong network - use chainId hook which works even for unsupported chains
   const actualChainId = chain?.id ?? chainId;
-  const isWrongNetwork = isConnected && actualChainId !== LINEA_CHAIN_ID;
-  const isCorrectNetwork = isConnected && actualChainId === LINEA_CHAIN_ID;
+  const isWrongNetwork = isConnected && actualChainId !== CHAIN_ID;
+  const isCorrectNetwork = isConnected && actualChainId === CHAIN_ID;
 
   const [claims, setClaims] = useState<ClaimableIdentity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -272,7 +272,7 @@ export default function Claim() {
               {isCorrectNetwork && (
                 <Badge variant="outline" className="text-xs gap-1">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
-                  Linea
+                  Ethereum
                 </Badge>
               )}
               <WalletButton />
@@ -324,13 +324,13 @@ export default function Claim() {
                     Wrong Network
                   </h2>
                   <p className="text-muted-foreground mb-6">
-                    Please switch to Linea Mainnet to claim your identities
+                    Please switch to Ethereum Mainnet to claim your identities
                   </p>
                   <Button 
-                    onClick={() => switchChain({ chainId: LINEA_CHAIN_ID })}
+                    onClick={() => switchChain({ chainId: CHAIN_ID })}
                     data-testid="button-switch-network"
                   >
-                    Switch to Linea
+                    Switch to Ethereum
                   </Button>
                 </div>
               ) : isLoading ? (
@@ -421,7 +421,7 @@ export default function Claim() {
           {/* Footer Info */}
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
-              Identities are soulbound tokens on Linea Mainnet
+              Identities are soulbound tokens on Ethereum Mainnet
             </p>
           </div>
         </div>

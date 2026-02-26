@@ -2,7 +2,7 @@
 
 ## Overview
 
-A production-ready web application for creating and managing decentralized identity namespaces on Linea Mainnet. The platform enables organizations to create identity registries and users to claim soulbound identity tokens through Merkle proof verification.
+A production-ready web application for creating and managing decentralized identity namespaces on Ethereum Mainnet. The platform enables organizations to create identity registries and users to claim soulbound identity tokens through Merkle proof verification.
 
 ## Project Structure
 
@@ -88,8 +88,9 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 
 ## Contract Interaction
 
-**Contract Address**: `0x74aACeff8139c84433befB922a8E687B6ba51F3a`
-**Chain**: Linea Mainnet (Chain ID: 59144)
+**Contract Address (RWAIDv2)**: `0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2`
+**USDC**: `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`
+**Chain**: Ethereum Mainnet (Chain ID: 1)
 
 ### Functions Used
 - `createProjectWithSlug(slug, soulbound, baseURI)` - Create new project
@@ -102,13 +103,12 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 
 | Variable | Description |
 |----------|-------------|
-| VITE_LINEA_RPC_URL | Linea RPC endpoint |
 | VITE_RWA_ID_REGISTRY | Contract address |
 
 ## User Flows
 
 ### Platform Console (5 Steps)
-1. Connect Wallet → Linea Mainnet
+1. Connect Wallet → Ethereum Mainnet
 2. Create Project → slug, soulbound, baseURI
 3. Upload CSV → name,address pairs
 4. Set Allowlist Root → On-chain transaction with validFrom/validTo
