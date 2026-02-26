@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, useChainId } from "wagmi";
-import { keccak256, toBytes, encodeFunctionData } from "viem";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
+import { keccak256, toBytes } from "viem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
+import { rwaIdV2Abi, RWAID_V2_ADDRESS, CHAIN_ID } from "@/lib/abi";
 import {
   Fingerprint,
   CheckCircle,
@@ -23,7 +23,6 @@ import {
 interface ClaimableIdentity {
   slug: string;
   projectId: string;
-  badgeType: string;
   name: string;
   nameHash: string;
   proof: string[];
@@ -45,7 +44,7 @@ function ClaimCard({
 }) {
   const { address } = useAccount();
   
-  const { writeContract: claimFor, data: claimTxHash, isPending: isClaiming } = useWriteContract();
+  const { writeContract: claimIdentity, data: claimTxHash, isPending: isClaiming } = useWriteContract();
   const { isLoading: isWaitingClaim, isSuccess: claimSuccess } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
@@ -53,39 +52,18 @@ function ClaimCard({
   const handleClaim = useCallback(() => {
     if (!onChainProjectId || !address) return;
     
-    // Encode and log the calldata to verify selector
-    const calldata = encodeFunctionData({
-      abi: RWA_ID_REGISTRY_ABI,
-      functionName: "claimFor",
-      args: [
-        onChainProjectId,
-        BADGE_TYPE_DEFAULT,
-        address,
-        claim.nameHash as `0x${string}`,
-        claim.proof as `0x${string}`[],
-      ],
-    });
-    const selector = calldata.slice(0, 10);
-    
-    console.log("=== Claim Debug (claimFor) ===");
-    console.log("TX Selector:", selector, selector === "0x8551b373" ? "✓ CORRECT" : "✗ WRONG");
+    console.log("=== Claim Debug (claim) ===");
     console.log("projectId:", onChainProjectId.toString());
-    console.log("badgeType:", BADGE_TYPE_DEFAULT);
-    console.log("recipient:", address);
     console.log("nameHash:", claim.nameHash);
     console.log("proof:", claim.proof);
     console.log("proof length:", claim.proof.length);
-    console.log("Full calldata:", calldata);
     
-    // Use claimFor with: projectId, badgeType, recipient (connected wallet), nameHash, proof
-    claimFor({
-      address: RWA_ID_REGISTRY_ADDRESS,
-      abi: RWA_ID_REGISTRY_ABI,
-      functionName: "claimFor",
+    claimIdentity({
+      address: RWAID_V2_ADDRESS,
+      abi: rwaIdV2Abi,
+      functionName: "claim",
       args: [
         onChainProjectId,
-        BADGE_TYPE_DEFAULT,
-        address,
         claim.nameHash as `0x${string}`,
         claim.proof as `0x${string}`[],
       ],
@@ -97,7 +75,7 @@ function ClaimCard({
         console.error("Claim error:", error);
       },
     });
-  }, [onChainProjectId, address, claim, claimFor]);
+  }, [onChainProjectId, address, claim, claimIdentity]);
 
   if (claimSuccess) {
     return (
@@ -192,19 +170,46 @@ function ClaimCard({
 }
 
 function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIdentity; isWrongNetwork: boolean }) {
+  const publicClient = usePublicClient();
   const slugHash = keccak256(toBytes(claim.slug.trim().toLowerCase()));
-  
-  const { data: projectId } = useReadContract({
-    address: RWA_ID_REGISTRY_ADDRESS,
-    abi: RWA_ID_REGISTRY_ABI,
-    functionName: "projectIdBySlugHash",
-    args: [slugHash],
-  });
+  const [projectId, setProjectId] = useState<bigint | undefined>(undefined);
+
+  useEffect(() => {
+    if (!publicClient) return;
+    
+    let cancelled = false;
+    const findProject = async () => {
+      let consecutiveErrors = 0;
+      for (let i = 1; i <= 50; i++) {
+        if (cancelled) return;
+        try {
+          const projectInfo = await publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "projects",
+            args: [BigInt(i)],
+          }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
+          
+          consecutiveErrors = 0;
+          if (projectInfo[2] === slugHash) {
+            if (!cancelled) setProjectId(BigInt(i));
+            return;
+          }
+        } catch {
+          consecutiveErrors++;
+          if (consecutiveErrors >= 3) return;
+        }
+      }
+    };
+    
+    findProject();
+    return () => { cancelled = true; };
+  }, [publicClient, slugHash]);
 
   return (
     <ClaimCard 
       claim={claim} 
-      onChainProjectId={projectId as bigint | undefined}
+      onChainProjectId={projectId}
       isWrongNetwork={isWrongNetwork}
     />
   );
@@ -212,10 +217,9 @@ function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIde
 
 export default function Claim() {
   const { address, isConnected, chain } = useAccount();
-  const chainId = useChainId(); // Get actual chain ID from wallet
+  const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   
-  // Check if on wrong network - use chainId hook which works even for unsupported chains
   const actualChainId = chain?.id ?? chainId;
   const isWrongNetwork = isConnected && actualChainId !== CHAIN_ID;
   const isCorrectNetwork = isConnected && actualChainId === CHAIN_ID;
@@ -284,7 +288,6 @@ export default function Claim() {
 
       <main className="py-12 sm:py-20">
         <div className="max-w-xl mx-auto px-4 sm:px-6">
-          {/* Hero Section */}
           <div className="text-center mb-10">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
               <Fingerprint className="w-8 h-8 text-primary" />
@@ -297,7 +300,6 @@ export default function Claim() {
             </p>
           </div>
 
-          {/* Main Card */}
           <Card className="rounded-2xl">
             <CardContent className="p-6 sm:p-8">
               {!isConnected ? (
@@ -418,7 +420,6 @@ export default function Claim() {
             </CardContent>
           </Card>
 
-          {/* Footer Info */}
           <div className="mt-8 text-center">
             <p className="text-xs text-muted-foreground">
               Identities are soulbound tokens on Ethereum Mainnet

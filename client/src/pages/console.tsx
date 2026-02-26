@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, usePublicClient, useChainId } from "wagmi";
-import { keccak256, toBytes, parseEther, formatEther, encodeFunctionData, formatGwei, parseAbiItem } from "viem";
+import { keccak256, toBytes, formatEther, encodeFunctionData, formatGwei } from "viem";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Stepper } from "@/components/stepper";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { RWA_ID_REGISTRY_ABI, RWA_ID_REGISTRY_ADDRESS, CHAIN_ID, BADGE_TYPE_DEFAULT } from "@/lib/abi";
+import { rwaIdV2Abi, RWAID_V2_ADDRESS, CHAIN_ID } from "@/lib/abi";
 import { apiRequest } from "@/lib/queryClient";
 import type { UploadResponse } from "@shared/schema";
 import {
@@ -79,16 +79,14 @@ export default function Platform() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [slug, setSlug] = useState("");
-  const [baseURI, setBaseURI] = useState("https://rwa-id.eth/metadata/");
-  const [soulbound, setSoulbound] = useState(true);
+  const [treasury, setTreasury] = useState("");
+  const [claimFee, setClaimFee] = useState("0");
+  const [transferable, setTransferable] = useState(false);
   const [projectId, setProjectId] = useState<bigint | null>(null);
   const [csvText, setCsvText] = useState("");
   const [merkleRoot, setMerkleRoot] = useState("");
   const [rowCount, setRowCount] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [validFrom, setValidFrom] = useState("0");
-  // Default to max uint64 (effectively no expiration)
-  const [validTo, setValidTo] = useState("18446744073709551615");
   const [proofsData, setProofsData] = useState<Record<string, { name: string; nameHash: string; proof: string[] }> | null>(null);
   const [estimatedGas, setEstimatedGas] = useState<bigint | null>(null);
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
@@ -106,7 +104,7 @@ export default function Platform() {
   const [userProjects, setUserProjects] = useState<Array<{
     projectId: bigint;
     slug: string;
-    soulbound: boolean;
+    transferable: boolean;
   }>>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   
@@ -115,23 +113,7 @@ export default function Platform() {
 
   const publicClient = usePublicClient();
 
-  const { data: projectFee } = useReadContract({
-    address: RWA_ID_REGISTRY_ADDRESS,
-    abi: RWA_ID_REGISTRY_ABI,
-    functionName: "projectFee",
-  });
-
   const slugHash = slug ? keccak256(toBytes(slug.trim().toLowerCase())) : undefined;
-
-  const { data: fetchedProjectId, refetch: refetchProjectId } = useReadContract({
-    address: RWA_ID_REGISTRY_ADDRESS,
-    abi: RWA_ID_REGISTRY_ABI,
-    functionName: "projectIdBySlugHash",
-    args: slugHash ? [slugHash] : undefined,
-    query: {
-      enabled: false,
-    },
-  });
 
   const { writeContract: createProject, data: createTxHash, isPending: isCreating, reset: resetCreateProject } = useWriteContract();
   const { isLoading: isWaitingCreate, isSuccess: createSuccess, data: createReceipt } = useWaitForTransactionReceipt({
@@ -141,7 +123,7 @@ export default function Platform() {
     },
   });
 
-  const { writeContract: setAllowlistRoot, data: setRootTxHash, isPending: isSettingRoot, reset: resetSetRoot, error: setRootError } = useWriteContract();
+  const { writeContract: updateMerkleRoot, data: setRootTxHash, isPending: isSettingRoot, reset: resetSetRoot, error: setRootError } = useWriteContract();
   const { isLoading: isWaitingSetRoot, isSuccess: setRootSuccess, error: receiptError, status: receiptStatus } = useWaitForTransactionReceipt({
     hash: setRootTxHash,
     query: {
@@ -206,10 +188,10 @@ export default function Platform() {
     }
   }, [currentStep, createSuccess]);
 
-  // Fetch on-chain project admin to verify ownership
+  // Fetch on-chain project data to verify ownership
   const { data: projectData } = useReadContract({
-    address: RWA_ID_REGISTRY_ADDRESS,
-    abi: RWA_ID_REGISTRY_ABI,
+    address: RWAID_V2_ADDRESS,
+    abi: rwaIdV2Abi,
     functionName: "projects",
     args: projectId ? [projectId] : undefined,
     query: {
@@ -217,7 +199,7 @@ export default function Platform() {
     },
   });
   
-  // Extract admin from project data (projects returns [admin, soulbound, paused, slugHash, slug, baseURI])
+  // Extract owner from project data (projects returns [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue])
   const onChainAdmin = projectData?.[0] as string | undefined;
 
   const uploadMutation = useMutation({
@@ -237,7 +219,7 @@ export default function Platform() {
     },
   });
 
-  // Check if slug exists and verify admin ownership
+  // Check if slug exists and verify owner
   const checkSlugAndOwnership = useCallback(async () => {
     if (!slug || !publicClient || !address) return;
     
@@ -251,77 +233,59 @@ export default function Platform() {
       
       console.log("Checking slug:", normalizedSlug, "Hash:", computedSlugHash);
       
-      // Check if project exists - use raw call to handle potential ABI issues
-      let existingProjectId: bigint;
-      try {
-        existingProjectId = await publicClient.readContract({
-          address: RWA_ID_REGISTRY_ADDRESS,
-          abi: RWA_ID_REGISTRY_ABI,
-          functionName: "projectIdBySlugHash",
-          args: [computedSlugHash],
-        }) as bigint;
-        console.log("Project ID lookup result:", existingProjectId?.toString());
-      } catch (lookupError) {
-        console.error("Project ID lookup failed:", lookupError);
-        // If lookup fails, assume slug is available
-        setIsExistingProject(false);
-        setSlugVerified(true);
-        setProjectId(null);
-        setProjectAdmin(null);
-        return;
+      // Scan projects to find one with matching slugHash
+      let foundProjectId: bigint | null = null;
+      const maxProjectsToCheck = 50;
+      let consecutiveErrors = 0;
+      
+      for (let i = 1; i <= maxProjectsToCheck; i++) {
+        try {
+          const projectInfo = await publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "projects",
+            args: [BigInt(i)],
+          }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
+          // [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue]
+          
+          consecutiveErrors = 0;
+          
+          if (projectInfo[2] === computedSlugHash) {
+            foundProjectId = BigInt(i);
+            const owner = projectInfo[0];
+            const isTransferable = projectInfo[5];
+            
+            if (owner.toLowerCase() === address.toLowerCase()) {
+              setProjectId(foundProjectId);
+              setProjectAdmin(owner);
+              setTransferable(isTransferable);
+              setIsExistingProject(true);
+              setSlugVerified(true);
+            } else {
+              setSlugCheckError(`This slug is owned by ${owner.slice(0, 6)}...${owner.slice(-4)}. Please use a different slug or switch wallets.`);
+            }
+            break;
+          }
+        } catch {
+          consecutiveErrors++;
+          if (consecutiveErrors >= 3) break;
+        }
       }
       
-      if (existingProjectId && existingProjectId > BigInt(0)) {
-        // Project exists - check admin ownership
-        let projectInfo: readonly [string, boolean, boolean, string, string, string];
-        try {
-          projectInfo = await publicClient.readContract({
-            address: RWA_ID_REGISTRY_ADDRESS,
-            abi: RWA_ID_REGISTRY_ABI,
-            functionName: "projects",
-            args: [existingProjectId],
-          }) as readonly [string, boolean, boolean, string, string, string];
-          console.log("Project info:", projectInfo);
-        } catch (projectError) {
-          console.error("Project info lookup failed:", projectError);
-          setSlugCheckError("Could not fetch project details. Please try again.");
-          return;
-        }
-        
-        const admin = projectInfo[0];
-        const isSoulbound = projectInfo[1];
-        
-        if (admin.toLowerCase() === address.toLowerCase()) {
-          // User owns this project - set up for existing project flow
-          setProjectId(existingProjectId);
-          setProjectAdmin(admin);
-          setSoulbound(isSoulbound);
-          setIsExistingProject(true);
-          setSlugVerified(true);
-          
-        } else {
-          // Project exists but user is not admin
-          setSlugCheckError(`This slug is owned by ${admin.slice(0, 6)}...${admin.slice(-4)}. Please use a different slug or switch wallets.`);
-        }
-      } else {
+      if (foundProjectId === null) {
         // Project doesn't exist - new project flow
         setIsExistingProject(false);
         setSlugVerified(true);
-        // Clear any previous project state for a clean new project flow
         setProjectId(null);
         setProjectAdmin(null);
         setEstimatedGas(null);
         setGasPrice(null);
         setGasError(null);
-        
       }
     } catch (error: unknown) {
-      // Log error details as string to avoid serialization issues
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorName = error instanceof Error ? error.name : "Unknown";
-      console.error("Slug check failed:", errorName, errorMessage);
+      console.error("Slug check failed:", errorMessage);
       
-      // Provide more specific error messages
       if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("Failed to fetch")) {
         setSlugCheckError("Network error. Please check your connection and try again.");
       } else if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
@@ -342,10 +306,8 @@ export default function Platform() {
     
     setIsLoadingProjects(true);
     try {
-      // Iterate through project IDs to find projects owned by this wallet
-      // The contract has relatively few projects, so this is efficient
-      const projects: Array<{ projectId: bigint; slug: string; soulbound: boolean }> = [];
-      const maxProjectsToCheck = 50; // Check up to 50 projects
+      const projects: Array<{ projectId: bigint; slug: string; transferable: boolean }> = [];
+      const maxProjectsToCheck = 50;
       
       console.log("Scanning for projects owned by:", address);
       
@@ -353,28 +315,26 @@ export default function Platform() {
       for (let i = 1; i <= maxProjectsToCheck; i++) {
         try {
           const projectInfo = await publicClient.readContract({
-            address: RWA_ID_REGISTRY_ADDRESS,
-            abi: RWA_ID_REGISTRY_ABI,
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
             functionName: "projects",
             args: [BigInt(i)],
-          }) as readonly [string, boolean, boolean, string, string, string];
-          // [admin, soulbound, paused, slugHash, slug, baseURI]
+          }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
+          // [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue]
           
-          consecutiveErrors = 0; // Reset error count on success
+          consecutiveErrors = 0;
           
-          // Check if this project is owned by the connected wallet
           if (projectInfo[0] && projectInfo[0].toLowerCase() === address.toLowerCase()) {
-            console.log(`Found project ${i}:`, projectInfo[4]); // slug is at index 4
+            console.log(`Found project ${i}:`, projectInfo[1]);
             projects.push({
               projectId: BigInt(i),
-              slug: projectInfo[4], // slug
-              soulbound: projectInfo[1], // soulbound
+              slug: projectInfo[1],
+              transferable: projectInfo[5],
             });
           }
         } catch (err) {
           consecutiveErrors++;
           console.log(`Error reading project ${i}:`, err instanceof Error ? err.message.slice(0, 100) : "Unknown error");
-          // Stop scanning after 3 consecutive errors (likely past end of projects)
           if (consecutiveErrors >= 3) {
             console.log(`Stopped scanning after ${i} projects (3 consecutive errors)`);
             break;
@@ -400,10 +360,10 @@ export default function Platform() {
   }, [isConnected, address, publicClient, isWrongNetwork, fetchUserProjects]);
 
   // Select an existing project from the list
-  const selectProject = useCallback((project: { projectId: bigint; slug: string; soulbound: boolean }) => {
+  const selectProject = useCallback((project: { projectId: bigint; slug: string; transferable: boolean }) => {
     setSlug(project.slug);
     setProjectId(project.projectId);
-    setSoulbound(project.soulbound);
+    setTransferable(project.transferable);
     setIsExistingProject(true);
     setSlugVerified(true);
     setProjectAdmin(address || null);
@@ -411,49 +371,40 @@ export default function Platform() {
   }, [address]);
 
   const handleCreateProject = useCallback(() => {
-    if (!slug) return;
+    if (!slug || !address) return;
     
-    // CRITICAL: Check we're on the right network FIRST
     if (actualChainId !== CHAIN_ID) {
       console.error("handleCreateProject BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", CHAIN_ID);
-      
-      // Trigger wallet popup to switch networks
       if (switchChain) {
         switchChain(
           { chainId: CHAIN_ID },
           {
-            onSuccess: () => {
-              console.log("Network switched to Ethereum");
-            },
-            onError: (error) => {
-              console.error("Network switch failed:", error);
-            },
+            onSuccess: () => console.log("Network switched to Ethereum"),
+            onError: (error) => console.error("Network switch failed:", error),
           }
         );
       }
       return;
     }
     
+    const treasuryAddr = treasury || address;
+    const feeInWei = BigInt(claimFee || "0");
+    
     console.log("=== handleCreateProject CALLED ===");
-    console.log("Function: createProjectWithSlug");
-    console.log("Args:", { slug: slug.trim().toLowerCase(), soulbound, baseURI });
-    const fee = projectFee || parseEther("0.0005");
+    console.log("Function: createProject");
+    console.log("Args:", { slug: slug.trim().toLowerCase(), treasury: treasuryAddr, claimFee: feeInWei.toString(), transferable });
+    
     createProject({
-      address: RWA_ID_REGISTRY_ADDRESS,
-      abi: RWA_ID_REGISTRY_ABI,
-      functionName: "createProjectWithSlug",
-      args: [slug.trim().toLowerCase(), soulbound, baseURI],
-      value: fee,
-      chainId: CHAIN_ID, // Force Ethereum Mainnet
+      address: RWAID_V2_ADDRESS,
+      abi: rwaIdV2Abi,
+      functionName: "createProject",
+      args: [slug.trim().toLowerCase(), treasuryAddr as `0x${string}`, feeInWei, transferable],
+      chainId: CHAIN_ID,
     }, {
-      onSuccess: () => {
-        console.log("Create project transaction submitted");
-      },
-      onError: (error) => {
-        console.error("Create project transaction failed:", error.message);
-      },
+      onSuccess: () => console.log("Create project transaction submitted"),
+      onError: (error) => console.error("Create project transaction failed:", error.message),
     });
-  }, [slug, baseURI, soulbound, projectFee, createProject, actualChainId, switchChain]);
+  }, [slug, treasury, claimFee, transferable, address, createProject, actualChainId, switchChain]);
 
   // Check if current wallet matches project admin (use on-chain data if available, fallback to stored)
   const effectiveAdmin = onChainAdmin || projectAdmin;
@@ -465,14 +416,12 @@ export default function Platform() {
   const estimateGasForSetRoot = useCallback(async () => {
     if (!projectId || !merkleRoot || !publicClient || !address) return;
     
-    // Use on-chain admin if available, otherwise use stored admin
     const admin = onChainAdmin || projectAdmin;
     
-    // Block if wallet doesn't match project admin
     if (admin && admin.toLowerCase() !== address.toLowerCase()) {
       const shortAdmin = `${admin.slice(0, 6)}...${admin.slice(-4)}`;
-      setGasError(`Wrong wallet. Project admin is ${shortAdmin}. Please switch wallets.`);
-      console.error("Wallet mismatch - Connected:", address, "Admin:", admin);
+      setGasError(`Wrong wallet. Project owner is ${shortAdmin}. Please switch wallets.`);
+      console.error("Wallet mismatch - Connected:", address, "Owner:", admin);
       return;
     }
     
@@ -482,55 +431,43 @@ export default function Platform() {
     setGasPrice(null);
     
     try {
-      const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
-      const toTs = validTo ? BigInt(validTo) : BigInt(0);
-      
-      // Encode the calldata
       const calldata = encodeFunctionData({
-        abi: RWA_ID_REGISTRY_ABI,
-        functionName: "setAllowlistRootForBadge",
-        args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
+        abi: rwaIdV2Abi,
+        functionName: "updateMerkleRoot",
+        args: [projectId, merkleRoot as `0x${string}`, BigInt(rowCount)],
       });
       
-      // Log debug info
-      console.log("=== Set Allowlist Root Debug ===");
-      console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
-      console.log("Function: setAllowlistRootForBadge");
+      console.log("=== Update Merkle Root Debug ===");
+      console.log("Contract:", RWAID_V2_ADDRESS);
+      console.log("Function: updateMerkleRoot");
       console.log("Args:", {
         projectId: projectId.toString(),
-        badgeType: BADGE_TYPE_DEFAULT,
-        merkleRoot,
-        validFrom: fromTs.toString(),
-        validTo: toTs.toString(),
+        newRoot: merkleRoot,
+        newTotalAllowlisted: rowCount.toString(),
       });
       console.log("Calldata:", calldata);
-      console.log("Calldata length (bytes):", (calldata.length - 2) / 2);
       
-      // Check calldata size - should be ~200 bytes, not thousands
       const calldataBytes = (calldata.length - 2) / 2;
       if (calldataBytes > 500) {
-        setGasError(`Warning: Calldata is unusually large (${calldataBytes} bytes). Expected ~200 bytes.`);
+        setGasError(`Warning: Calldata is unusually large (${calldataBytes} bytes). Expected ~100 bytes.`);
         setIsEstimatingGas(false);
         return;
       }
       
-      // Estimate gas
       const gasEstimate = await publicClient.estimateGas({
         account: address,
-        to: RWA_ID_REGISTRY_ADDRESS,
+        to: RWAID_V2_ADDRESS,
         data: calldata,
       });
       
       console.log("Gas estimate:", gasEstimate.toString());
       
-      // Check if gas is too high (> 500k is suspicious for this call)
       if (gasEstimate > BigInt(500000)) {
-        setGasError(`Gas estimate is unusually high (${gasEstimate.toString()}). This may indicate a contract error. Try refreshing or contact support.`);
+        setGasError(`Gas estimate is unusually high (${gasEstimate.toString()}). This may indicate a contract error.`);
         setIsEstimatingGas(false);
         return;
       }
       
-      // Get current gas price
       const currentGasPrice = await publicClient.getGasPrice();
       console.log("Gas price:", formatGwei(currentGasPrice), "gwei");
       
@@ -539,127 +476,72 @@ export default function Platform() {
       
     } catch (error) {
       console.error("Gas estimation failed:", error);
-      console.log("Connected address:", address);
-      console.log("Project ID being used:", projectId?.toString());
-      console.log("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-      
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
-      // Extract revert reason if available
       let revertReason = "";
-      if (errorMessage.includes("reverted with the following reason:")) {
-        const match = errorMessage.match(/reverted with the following reason:\s*(.+)/);
-        if (match) revertReason = match[1];
-      } else if (errorMessage.includes("execution reverted:")) {
+      if (errorMessage.includes("execution reverted:")) {
         const match = errorMessage.match(/execution reverted:\s*(.+?)(\n|$)/);
         if (match) revertReason = match[1];
       }
       
-      // Check for common revert reasons
       if (errorMessage.includes("execution reverted")) {
-        const detailMsg = revertReason 
+        setGasError(revertReason 
           ? `Contract error: ${revertReason}` 
-          : `Transaction would fail. Connected: ${address?.slice(0, 6)}...${address?.slice(-4)}, Project ID: ${projectId?.toString()}. The contract may require additional permissions or the function signature may be incorrect.`;
-        setGasError(detailMsg);
+          : `Transaction would fail. Connected: ${address?.slice(0, 6)}...${address?.slice(-4)}, Project ID: ${projectId?.toString()}.`);
       } else {
         setGasError(`Gas estimation failed: ${errorMessage}`);
       }
     } finally {
       setIsEstimatingGas(false);
     }
-  }, [projectId, merkleRoot, validFrom, validTo, publicClient, address, projectAdmin, onChainAdmin]);
+  }, [projectId, merkleRoot, rowCount, publicClient, address, projectAdmin, onChainAdmin]);
 
   const handleSetAllowlistRoot = useCallback(() => {
-    // CRITICAL: Check we're on the right network FIRST
     if (actualChainId !== CHAIN_ID) {
-      console.error("handleSetAllowlistRoot BLOCKED - Wrong network! Connected to:", actualChainId, "Expected:", CHAIN_ID);
-      
-      // Trigger wallet popup to switch networks
       if (switchChain) {
         switchChain(
           { chainId: CHAIN_ID },
           {
-            onSuccess: () => {
-              console.log("Network switched to Ethereum");
-            },
-            onError: (error) => {
-              console.error("Network switch failed:", error);
-            },
+            onSuccess: () => console.log("Network switched to Ethereum"),
+            onError: (error) => console.error("Network switch failed:", error),
           }
         );
       }
       return;
     }
     
-    // HARD GUARD: Ensure we have a valid projectId - NEVER fallback to createProject
     if (!projectId || projectId === BigInt(0)) {
       console.error("handleSetAllowlistRoot BLOCKED - Project not created yet");
       return;
     }
     
-    if (!merkleRoot) {
-      console.error("handleSetAllowlistRoot BLOCKED - No merkle root");
-      return;
-    }
-    
-    if (!estimatedGas) {
-      console.error("handleSetAllowlistRoot BLOCKED - No gas estimate");
-      return;
-    }
-    
-    const fromTs = validFrom ? BigInt(validFrom) : BigInt(0);
-    const toTs = validTo ? BigInt(validTo) : BigInt(0);
-    
-    // Compute selector to verify correct function is being called
-    // setAllowlistRootForBadge(uint256,bytes32,bytes32,uint64,uint64) = 0x97ada692
-    const expectedSelector = "0x97ada692";
-    const calldata = encodeFunctionData({
-      abi: RWA_ID_REGISTRY_ABI,
-      functionName: "setAllowlistRootForBadge",
-      args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
-    });
-    const actualSelector = calldata.slice(0, 10);
+    if (!merkleRoot || !estimatedGas) return;
     
     console.log("=== handleSetAllowlistRoot CALLED ===");
-    console.log("Expected selector:", expectedSelector);
-    console.log("Actual selector:", actualSelector);
-    console.log("Selector match:", actualSelector === expectedSelector);
-    console.log("Contract:", RWA_ID_REGISTRY_ADDRESS);
-    console.log("Function: setAllowlistRootForBadge");
-    console.log("Value: 0 (nonpayable)");
+    console.log("Contract:", RWAID_V2_ADDRESS);
+    console.log("Function: updateMerkleRoot");
     console.log("Args:", {
       projectId: projectId.toString(),
-      badgeType: BADGE_TYPE_DEFAULT,
-      merkleRoot: merkleRoot,
-      validFrom: fromTs.toString(),
-      validTo: toTs.toString(),
+      newRoot: merkleRoot,
+      newTotalAllowlisted: rowCount.toString(),
     });
     
-    if (actualSelector !== expectedSelector) {
-      console.error("SELECTOR MISMATCH! Expected:", expectedSelector, "Got:", actualSelector);
-      return;
-    }
-    
-    // Call setAllowlistRootForBadge - NEVER createProject
-    // CRITICAL: Explicitly specify chainId to ensure transaction goes to Ethereum
-    setAllowlistRoot({
-      address: RWA_ID_REGISTRY_ADDRESS,
-      abi: RWA_ID_REGISTRY_ABI,
-      functionName: "setAllowlistRootForBadge",
-      args: [projectId, BADGE_TYPE_DEFAULT, merkleRoot as `0x${string}`, fromTs, toTs],
-      gas: estimatedGas + (estimatedGas / BigInt(10)), // Add 10% buffer
-      chainId: CHAIN_ID, // Force Ethereum Mainnet
+    updateMerkleRoot({
+      address: RWAID_V2_ADDRESS,
+      abi: rwaIdV2Abi,
+      functionName: "updateMerkleRoot",
+      args: [projectId, merkleRoot as `0x${string}`, BigInt(rowCount)],
+      gas: estimatedGas + (estimatedGas / BigInt(10)),
+      chainId: CHAIN_ID,
     }, {
       onSuccess: (hash) => {
-        console.log("=== setAllowlistRoot onSuccess ===");
-        console.log("Transaction hash:", hash);
+        console.log("updateMerkleRoot tx hash:", hash);
       },
       onError: (error) => {
-        console.error("=== setAllowlistRoot onError ===");
-        console.error("setAllowlistRoot transaction error:", error);
+        console.error("updateMerkleRoot transaction error:", error);
       },
     });
-  }, [projectId, merkleRoot, validFrom, validTo, estimatedGas, setAllowlistRoot, actualChainId, switchChain]);
+  }, [projectId, merkleRoot, rowCount, estimatedGas, updateMerkleRoot, actualChainId, switchChain]);
 
   
   const downloadProofsJson = useCallback(() => {
@@ -667,14 +549,11 @@ export default function Platform() {
     
     const proofsFile = {
       chainId: CHAIN_ID,
-      registry: RWA_ID_REGISTRY_ADDRESS,
+      registry: RWAID_V2_ADDRESS,
       slug: slug.trim().toLowerCase(),
       slugHash: slugHash,
       projectId: projectId.toString(),
-      badgeType: BADGE_TYPE_DEFAULT,
       merkleRoot: merkleRoot,
-      validFrom: validFrom || "0",
-      validTo: validTo || "0",
       entries: proofsData,
     };
     
@@ -688,7 +567,7 @@ export default function Platform() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-  }, [proofsData, slugHash, projectId, slug, merkleRoot, validFrom, validTo]);
+  }, [proofsData, slugHash, projectId, slug, merkleRoot]);
 
   const handleUploadCSV = () => {
     if (!csvText || !slug) return;
@@ -744,24 +623,37 @@ export default function Platform() {
   };
 
   useEffect(() => {
-    if (createSuccess && projectId === null && slug) {
-      // Store the wallet that created the project
+    if (createSuccess && projectId === null && slug && publicClient) {
       if (address && !projectAdmin) {
         setProjectAdmin(address);
       }
       
       let attempts = 0;
       const maxAttempts = 10;
+      const normalizedSlug = slug.trim().toLowerCase();
+      const computedSlugHash = keccak256(toBytes(normalizedSlug));
       
       const fetchId = async () => {
-        try {
-          const result = await refetchProjectId();
-          if (result.data && result.data > BigInt(0)) {
-            setProjectId(result.data);
-            return true;
+        // Scan projects to find the newly created one
+        let consecutiveErrors = 0;
+        for (let i = 1; i <= 100; i++) {
+          try {
+            const projectInfo = await publicClient.readContract({
+              address: RWAID_V2_ADDRESS,
+              abi: rwaIdV2Abi,
+              functionName: "projects",
+              args: [BigInt(i)],
+            }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
+            
+            consecutiveErrors = 0;
+            if (projectInfo[2] === computedSlugHash) {
+              setProjectId(BigInt(i));
+              return true;
+            }
+          } catch {
+            consecutiveErrors++;
+            if (consecutiveErrors >= 3) break;
           }
-        } catch {
-          // Retry on error
         }
         return false;
       };
@@ -779,7 +671,7 @@ export default function Platform() {
       const timer = setTimeout(retryFetch, 1500);
       return () => clearTimeout(timer);
     }
-  }, [createSuccess, projectId, slug, refetchProjectId, address, projectAdmin]);
+  }, [createSuccess, projectId, slug, publicClient, address, projectAdmin]);
 
   // Auto-estimate gas when entering setroot step with all required data
   useEffect(() => {
@@ -791,31 +683,6 @@ export default function Platform() {
       estimateGasForSetRoot();
     }
   }, [currentStep, isExistingProject, projectId, merkleRoot, publicClient, address, estimatedGas, isEstimatingGas, gasError, estimateGasForSetRoot]);
-
-  // Track previous validFrom/validTo to detect actual changes
-  const prevTimeWindow = useRef({ validFrom, validTo });
-  
-  // Re-estimate when validFrom/validTo actually change
-  useEffect(() => {
-    // Only reset if validFrom or validTo actually changed
-    if (prevTimeWindow.current.validFrom === validFrom && prevTimeWindow.current.validTo === validTo) {
-      return;
-    }
-    
-    // Update the ref
-    prevTimeWindow.current = { validFrom, validTo };
-    
-    const logicalStep = isExistingProject 
-      ? ["connect", "upload", "setroot", "complete"][currentStep] 
-      : ["connect", "create", "upload", "setroot", "complete"][currentStep];
-    
-    if (logicalStep === "setroot" && projectId && merkleRoot && estimatedGas) {
-      // Reset estimation when time window changes
-      setEstimatedGas(null);
-      setGasPrice(null);
-      setGasError(null);
-    }
-  }, [validFrom, validTo, currentStep, isExistingProject, projectId, merkleRoot, estimatedGas]);
 
   // Map current step to logical step based on flow type
   const getLogicalStep = () => {
@@ -896,7 +763,7 @@ export default function Platform() {
                             <div className="text-left">
                               <div className="font-medium">{project.slug}.rwa-id.eth</div>
                               <div className="text-xs text-muted-foreground">
-                                ID: {project.projectId.toString()} · {project.soulbound ? "Soulbound" : "Transferable"}
+                                ID: {project.projectId.toString()} · {project.transferable ? "Transferable" : "Soulbound"}
                               </div>
                             </div>
                           </Button>
@@ -1029,38 +896,48 @@ export default function Platform() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="baseURI">Base URI</Label>
+                <Label htmlFor="treasury">Treasury Address</Label>
                 <Input
-                  id="baseURI"
-                  placeholder="https://example.com/metadata/"
-                  value={baseURI}
-                  onChange={(e) => setBaseURI(e.target.value)}
+                  id="treasury"
+                  placeholder="0x... (defaults to your wallet)"
+                  value={treasury}
+                  onChange={(e) => setTreasury(e.target.value)}
                   disabled={isCreating || isWaitingCreate}
-                  data-testid="input-baseuri"
+                  data-testid="input-treasury"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Address that receives claim fees. Defaults to your connected wallet.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="claimFee">Claim Fee (in wei)</Label>
+                <Input
+                  id="claimFee"
+                  type="number"
+                  placeholder="0"
+                  value={claimFee}
+                  onChange={(e) => setClaimFee(e.target.value)}
+                  disabled={isCreating || isWaitingCreate}
+                  data-testid="input-claim-fee"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Fee in USDC (6 decimals). E.g., 1000000 = 1 USDC. Set to 0 for free claims.
+                </p>
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label htmlFor="soulbound">Soulbound Tokens</Label>
+                  <Label htmlFor="transferable">Transferable Tokens</Label>
                   <p className="text-xs text-muted-foreground">
-                    Non-transferable identity tokens
+                    Allow identity tokens to be transferred between wallets
                   </p>
                 </div>
                 <Switch
-                  id="soulbound"
-                  checked={soulbound}
-                  onCheckedChange={setSoulbound}
+                  id="transferable"
+                  checked={transferable}
+                  onCheckedChange={setTransferable}
                   disabled={isCreating || isWaitingCreate}
-                  data-testid="switch-soulbound"
+                  data-testid="switch-transferable"
                 />
-              </div>
-              <div className="p-4 rounded-lg bg-muted">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Project Fee</span>
-                  <span className="font-mono font-medium">
-                    {projectFee ? `${formatEther(projectFee)} ETH` : "~0.0005 ETH"}
-                  </span>
-                </div>
               </div>
               <Button
                 onClick={handleCreateProject}
@@ -1188,13 +1065,12 @@ export default function Platform() {
       return (
           <Card className="max-w-lg mx-auto">
             <CardHeader>
-              <CardTitle className="font-heading text-2xl">Set Allowlist Root</CardTitle>
+              <CardTitle className="font-heading text-2xl">Update Merkle Root</CardTitle>
               <CardDescription>
                 Submit the Merkle root on-chain to enable claims
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Wallet mismatch warning */}
               {isWalletMismatch && (
                 <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                   <div className="flex items-start gap-2">
@@ -1202,8 +1078,8 @@ export default function Platform() {
                     <div className="text-sm text-destructive">
                       <p className="font-medium">Wrong wallet connected</p>
                       <p className="text-xs mt-1">
-                        Project admin is {effectiveAdmin?.slice(0, 6)}...{effectiveAdmin?.slice(-4)}. 
-                        Please switch to that wallet to set the allowlist root.
+                        Project owner is {effectiveAdmin?.slice(0, 6)}...{effectiveAdmin?.slice(-4)}. 
+                        Please switch to that wallet to update the Merkle root.
                       </p>
                     </div>
                   </div>
@@ -1224,13 +1100,13 @@ export default function Platform() {
                 </div>
                 {onChainAdmin && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Project Admin</span>
+                    <span className="text-muted-foreground">Project Owner</span>
                     <span className="font-mono text-xs">{onChainAdmin.slice(0, 6)}...{onChainAdmin.slice(-4)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Badge Type</span>
-                  <span className="font-mono text-xs">0x00...00</span>
+                  <span className="text-muted-foreground">Entries</span>
+                  <span className="font-medium">{rowCount}</span>
                 </div>
                 <div className="space-y-1">
                   <span className="text-sm text-muted-foreground">Merkle Root</span>
@@ -1239,35 +1115,6 @@ export default function Platform() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="validFrom">Valid From (Unix timestamp)</Label>
-                  <Input
-                    id="validFrom"
-                    type="number"
-                    placeholder="0"
-                    value={validFrom}
-                    onChange={(e) => setValidFrom(e.target.value)}
-                    disabled={isSettingRoot || isWaitingSetRoot}
-                    data-testid="input-valid-from"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="validTo">Valid To (Unix timestamp)</Label>
-                  <Input
-                    id="validTo"
-                    type="number"
-                    placeholder="0"
-                    value={validTo}
-                    onChange={(e) => setValidTo(e.target.value)}
-                    disabled={isSettingRoot || isWaitingSetRoot}
-                    data-testid="input-valid-to"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Valid From 0 = immediate. Valid To defaults to max value (no expiration). Use Unix timestamps for specific windows.
-              </p>
               
               {/* Gas Estimation Status (auto-runs) */}
               {!setRootSuccess && (
@@ -1363,7 +1210,7 @@ export default function Platform() {
                       Root Set Successfully
                     </>
                   ) : (
-                    "Set Allowlist Root"
+                    "Update Merkle Root"
                   )}
                 </Button>
               )}
@@ -1453,8 +1300,6 @@ export default function Platform() {
                   setMerkleRoot("");
                   setRowCount(0);
                   setProofsData(null);
-                  setValidFrom("0");
-                  setValidTo("18446744073709551615");
                   setIsExistingProject(false);
                   setSlugVerified(false);
                   setSlugCheckError(null);

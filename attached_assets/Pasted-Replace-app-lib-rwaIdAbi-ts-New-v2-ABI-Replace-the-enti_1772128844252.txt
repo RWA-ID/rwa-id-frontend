@@ -1,7 +1,13 @@
+Replace app/lib/rwaIdAbi.ts — New v2 ABI
+
+Replace the entire file with:
+
+```ts
 export const RWAID_V2_ADDRESS = "0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2" as const;
 export const USDC_ADDRESS     = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const;
 
 export const rwaIdV2Abi = [
+  // Project creation
   {
     name: "createProject",
     type: "function",
@@ -14,6 +20,7 @@ export const rwaIdV2Abi = [
     ],
     outputs: [{ name: "projectId", type: "uint256" }],
   },
+  // Set allowlist
   {
     name: "updateMerkleRoot",
     type: "function",
@@ -25,6 +32,7 @@ export const rwaIdV2Abi = [
     ],
     outputs: [],
   },
+  // Claim (called by end user)
   {
     name: "claim",
     type: "function",
@@ -36,6 +44,7 @@ export const rwaIdV2Abi = [
     ],
     outputs: [],
   },
+  // Read project data
   {
     name: "projects",
     type: "function",
@@ -54,6 +63,7 @@ export const rwaIdV2Abi = [
       { name: "totalRevenue", type: "uint256" },
     ],
   },
+  // Check if address already claimed
   {
     name: "claimed",
     type: "function",
@@ -64,6 +74,7 @@ export const rwaIdV2Abi = [
     ],
     outputs: [{ type: "bool" }],
   },
+  // Protocol fee info
   {
     name: "minimumClaimFee",
     type: "function",
@@ -71,6 +82,7 @@ export const rwaIdV2Abi = [
     inputs: [],
     outputs: [{ type: "uint256" }],
   },
+  // Events
   {
     name: "ProjectCreated",
     type: "event",
@@ -120,5 +132,4 @@ export const usdcAbi = [
     outputs: [{ type: "bool" }],
   },
 ] as const;
-
-export const CHAIN_ID = 1;
+```

@@ -160,14 +160,12 @@ export async function registerRoutes(
       const claims: Array<{
         slug: string;
         projectId: string;
-        badgeType: string;
         name: string;
         nameHash: string;
         proof: string[];
       }> = [];
 
       for (const project of allProjects) {
-        // Find entries for this address in this project
         const matchingEntries = project.entries.filter(
           entry => entry.address.toLowerCase() === normalizedAddress
         );
@@ -180,12 +178,9 @@ export async function registerRoutes(
             entry.name
           );
 
-          // Note: projectId is fetched on-chain by frontend using projectIdBySlugHash(slugHash)
-          // badgeType is BADGE_TYPE_DEFAULT (bytes32(0)) for all MVP projects
           claims.push({
             slug: project.slug,
-            projectId: "on-chain", // Frontend fetches via projectIdBySlugHash
-            badgeType: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            projectId: "on-chain",
             name: entry.name.trim().toLowerCase(),
             nameHash,
             proof,
