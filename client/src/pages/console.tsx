@@ -388,17 +388,18 @@ export default function Platform() {
     }
     
     const treasuryAddr = treasury || address;
-    const feeInWei = BigInt(claimFee || "0");
+    const parsedFee = parseFloat(claimFee || "0");
+    const feeUsdcUnits = BigInt(Math.max(0, Math.round((isNaN(parsedFee) ? 0 : parsedFee) * 1_000_000)));
     
     console.log("=== handleCreateProject CALLED ===");
     console.log("Function: createProject");
-    console.log("Args:", { slug: slug.trim().toLowerCase(), treasury: treasuryAddr, claimFee: feeInWei.toString(), transferable });
+    console.log("Args:", { slug: slug.trim().toLowerCase(), treasury: treasuryAddr, claimFee: feeUsdcUnits.toString(), transferable });
     
     createProject({
       address: RWAID_V2_ADDRESS,
       abi: rwaIdV2Abi,
       functionName: "createProject",
-      args: [slug.trim().toLowerCase(), treasuryAddr as `0x${string}`, feeInWei, transferable],
+      args: [slug.trim().toLowerCase(), treasuryAddr as `0x${string}`, feeUsdcUnits, transferable],
       chainId: CHAIN_ID,
     }, {
       onSuccess: () => console.log("Create project transaction submitted"),
@@ -910,18 +911,29 @@ export default function Platform() {
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="claimFee">Claim Fee (in wei)</Label>
-                <Input
-                  id="claimFee"
-                  type="number"
-                  placeholder="0"
-                  value={claimFee}
-                  onChange={(e) => setClaimFee(e.target.value)}
-                  disabled={isCreating || isWaitingCreate}
-                  data-testid="input-claim-fee"
-                />
+                <Label htmlFor="claimFee">Claim Fee (USD)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <Input
+                    id="claimFee"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={claimFee}
+                    onChange={(e) => setClaimFee(e.target.value)}
+                    disabled={isCreating || isWaitingCreate}
+                    className="pl-7"
+                    data-testid="input-claim-fee"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Fee in USDC (6 decimals). E.g., 1000000 = 1 USDC. Set to 0 for free claims.
+                  Fee in USD paid in USDC per claim. Set to 0 for free claims.
+                  {claimFee && parseFloat(claimFee) > 0 && (
+                    <span className="block mt-1 font-mono">
+                      = {Math.round(parseFloat(claimFee) * 1_000_000).toLocaleString()} USDC units (6 decimals)
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center justify-between">
@@ -959,6 +971,27 @@ export default function Platform() {
                   "Create Project"
                 )}
               </Button>
+              {createSuccess && projectId && (
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-700 dark:text-green-400">
+                        Project ID: {projectId.toString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        This ID will be used in the next step to set the Merkle root
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {createSuccess && !projectId && (
+                <div className="p-4 rounded-lg bg-muted flex items-center gap-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Fetching project ID from chain...</span>
+                </div>
+              )}
               {createTxHash && (
                 <a
                   href={`https://etherscan.io/tx/${createTxHash}`}
@@ -986,6 +1019,31 @@ export default function Platform() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="projectIdInput">Project ID</Label>
+                <Input
+                  id="projectIdInput"
+                  type="number"
+                  min="1"
+                  placeholder="Enter project ID"
+                  value={projectId ? projectId.toString() : ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setProjectId(val ? BigInt(val) : null);
+                    setEstimatedGas(null);
+                    setGasPrice(null);
+                    setGasError(null);
+                  }}
+                  disabled={!!merkleRoot}
+                  data-testid="input-project-id"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isExistingProject 
+                    ? "Auto-filled from your selected project. You can change it if needed."
+                    : "Auto-filled from project creation. This is the on-chain project ID returned by the contract."
+                  }
+                </p>
+              </div>
               <div
                 className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover-elevate transition-colors"
                 onClick={() => document.getElementById("csv-upload")?.click()}

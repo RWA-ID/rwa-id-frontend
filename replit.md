@@ -2,7 +2,7 @@
 
 ## Overview
 
-A production-ready web application for creating and managing decentralized identity namespaces on Ethereum Mainnet. The platform enables organizations to create identity registries and users to claim soulbound identity tokens through Merkle proof verification.
+A production-ready web application for creating and managing decentralized identity namespaces on Ethereum Mainnet. The platform enables organizations to create identity registries and users to claim identity tokens through Merkle proof verification.
 
 ## Project Structure
 
@@ -16,8 +16,8 @@ A production-ready web application for creating and managing decentralized ident
 │   │   │   ├── wallet-button.tsx
 │   │   │   └── stepper.tsx
 │   │   ├── lib/
-│   │   │   ├── abi.ts         # Contract ABI and addresses
-│   │   │   ├── wagmi-config.ts # Web3 configuration
+│   │   │   ├── abi.ts         # Contract ABI (v2) and addresses
+│   │   │   ├── wagmi-config.ts # Web3 configuration (RainbowKit)
 │   │   │   ├── queryClient.ts
 │   │   │   └── utils.ts
 │   │   ├── pages/
@@ -41,7 +41,7 @@ A production-ready web application for creating and managing decentralized ident
 ## Key Technologies
 
 - **Frontend**: React, TypeScript, TailwindCSS, shadcn/ui
-- **Web3**: wagmi v2, viem, RainbowKit, merkletreejs
+- **Web3**: wagmi v2, viem, RainbowKit v2, merkletreejs
 - **Backend**: Express.js
 - **Build**: Vite
 
@@ -49,7 +49,7 @@ A production-ready web application for creating and managing decentralized ident
 
 - `/` - Landing page with hero, features, and how-it-works accordion
 - `/console` - Platform console with 5-step onboarding wizard
-- `/claim` - Public self-claim page (supports `/claim?slug=projectname`)
+- `/claim` - Public self-claim page
 
 ## API Endpoints
 
@@ -66,6 +66,11 @@ A production-ready web application for creating and managing decentralized ident
 ### GET /api/project/:slug
 - **Purpose**: Get project metadata
 - **Returns**: `{ slug, merkleRoot, entryCount, createdAt }`
+
+### GET /api/claimable
+- **Purpose**: Get all claimable identities for a wallet
+- **Query**: `?address=0x...`
+- **Returns**: `{ claims: [{ slug, projectId, name, nameHash, proof }] }`
 
 ## Merkle Tree Implementation (CRITICAL)
 
@@ -86,41 +91,55 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 - Address is converted to lowercase (20 bytes)
 - Name is trimmed and converted to lowercase, then hashed to 32 bytes
 
-## Contract Interaction
+## Contract Interaction (v2)
 
 **Contract Address (RWAIDv2)**: `0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2`
 **USDC**: `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`
 **Chain**: Ethereum Mainnet (Chain ID: 1)
 
-### Functions Used
-- `createProjectWithSlug(slug, soulbound, baseURI)` - Create new project
-- `projectIdBySlugHash(slugHash)` - Get project ID
-- `setAllowlistRootForBadgeWithWindow(projectId, badgeType, root, validFrom, validTo)` - Set Merkle root
-- `claimFor(projectId, badgeType, recipient, nameHash, proof)` - Claim for recipient
-- `claimSoulbound(projectId, badgeType, nameHash, name, proof)` - Claim soulbound identity
+### ABI Exports (from abi.ts)
+- `rwaIdV2Abi` - Full contract ABI
+- `RWAID_V2_ADDRESS` - Contract address
+- `usdcAbi` - USDC ABI (approve/allowance)
+- `USDC_ADDRESS` - USDC contract address
+- `CHAIN_ID` - 1 (Ethereum Mainnet)
+
+### Functions Used (v2)
+- `createProject(slug, treasury, claimFee, transferable)` - Create new project (nonpayable)
+- `updateMerkleRoot(projectId, newRoot, newTotalAllowlisted)` - Update Merkle root
+- `claim(projectId, nameHash, proof)` - Claim identity token
+- `projects(projectId)` - Read project data: [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue]
+
+### Project ID Lookup
+No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and match by `slugHash`. Console and claim pages both do this scan with a max of 50 projects and 3 consecutive error bail-out.
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| VITE_RWA_ID_REGISTRY | Contract address |
+| VITE_REOWN_PROJECT_ID | RainbowKit/WalletConnect project ID |
+| SESSION_SECRET | Express session secret |
 
 ## User Flows
 
-### Platform Console (5 Steps)
-1. Connect Wallet → Ethereum Mainnet
-2. Create Project → slug, soulbound, baseURI
-3. Upload CSV → name,address pairs
-4. Set Allowlist Root → On-chain transaction with validFrom/validTo
+### Platform Console (5 Steps - New Project)
+1. Connect Wallet & Select Project → Ethereum Mainnet, enter/select slug
+2. Create Project → slug, treasury address, claim fee (USD → USDC 6-decimal), transferable toggle
+3. Upload CSV → name,address pairs; editable Project ID field
+4. Update Merkle Root → On-chain transaction with gas estimation
 5. Complete → Claim link generated, proofs JSON downloadable
 
+### Platform Console (4 Steps - Existing Project)
+1. Connect Wallet & Select Project → Select from owned projects list
+2. Upload CSV → name,address pairs; Project ID auto-filled
+3. Update Merkle Root → On-chain transaction
+4. Complete → Updated claim link
+
 ### Self-Claim Flow
-1. Navigate to `/claim?slug=X`
-2. Provide proofs source (URL, upload, or paste JSON)
-3. Enter assigned name
-4. Connect wallet
-5. Check eligibility → Merkle proof verification
-6. Claim identity → Soulbound token minted
+1. Connect wallet on /claim
+2. Auto-discovers claimable identities from server
+3. Click "Claim" → calls `claim(projectId, nameHash, proof)` on-chain
+4. View transaction on Etherscan
 
 ## Development Notes
 
@@ -128,4 +147,6 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 - CSV should not be logged for privacy
 - Frontend uses Inter and Space Grotesk fonts
 - Dark/light theme support with localStorage persistence
-- BadgeType default: bytes32(0) = 0x000...000
+- Claim fee input is in USD, converted to USDC 6-decimal on-chain (e.g., $1.00 → 1000000)
+- No toast notifications — errors displayed inline
+- Wallet stack: RainbowKit v2 + wagmi v2 + viem
