@@ -1,37 +1,13 @@
-import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { mainnet } from "@reown/appkit/networks";
-import type { AppKitNetwork } from "@reown/appkit/networks";
-import { http } from "viem";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { mainnet } from "wagmi/chains";
+import { http } from "wagmi";
 
-export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || "";
-
-const getMetadataUrl = () => {
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname === "rwa-id.com" || hostname === "www.rwa-id.com") {
-      return "https://rwa-id.com";
-    }
-    return window.location.origin;
-  }
-  return "https://rwa-id.com";
-};
-
-export const metadata = {
-  name: "RWA-ID",
-  description: "Decentralized Identity Registry on Ethereum",
-  url: getMetadataUrl(),
-  icons: ["https://avatars.githubusercontent.com/u/179229932"],
-};
-
-export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet];
-
-export const wagmiAdapter = new WagmiAdapter({
-  networks,
-  projectId,
-  ssr: false,
+export const wagmiConfig = getDefaultConfig({
+  appName: "RWA ID",
+  projectId: "a5641b37fa2de3fa096da490333e3492",
+  chains: [mainnet],
   transports: {
     [mainnet.id]: http(),
   },
+  ssr: true,
 });
-
-export const wagmiConfig = wagmiAdapter.wagmiConfig;

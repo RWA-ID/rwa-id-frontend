@@ -87,7 +87,7 @@ export default function Privacy() {
             <section className="space-y-4">
               <h2 className="font-heading text-xl font-semibold">7. Third-Party Services</h2>
               <p className="text-muted-foreground">
-                Our platform integrates with third-party wallet providers (via Reown AppKit) to enable wallet connections. These services have their own privacy policies, and we encourage you to review them.
+                Our platform integrates with third-party wallet providers (via RainbowKit) to enable wallet connections. These services have their own privacy policies, and we encourage you to review them.
               </p>
             </section>
 

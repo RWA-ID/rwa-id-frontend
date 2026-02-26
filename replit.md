@@ -41,7 +41,7 @@ A production-ready web application for creating and managing decentralized ident
 ## Key Technologies
 
 - **Frontend**: React, TypeScript, TailwindCSS, shadcn/ui
-- **Web3**: wagmi v2, viem, merkletreejs
+- **Web3**: wagmi v2, viem, RainbowKit, merkletreejs
 - **Backend**: Express.js
 - **Build**: Vite
 
