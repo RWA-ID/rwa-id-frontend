@@ -2,7 +2,7 @@
 
 ## Overview
 
-A production-ready web application for creating and managing decentralized identity namespaces on Ethereum Mainnet. The platform enables organizations to create identity registries and users to claim identity tokens through Merkle proof verification.
+A production-ready web application for creating and managing decentralized identity namespaces on Ethereum Mainnet. The platform enables organizations to create identity registries and users to claim identity tokens through Merkle proof verification. Proofs are stored on IPFS via Pinata, and users claim via shareable URLs.
 
 ## Project Structure
 
@@ -11,6 +11,7 @@ A production-ready web application for creating and managing decentralized ident
 │   ├── src/
 │   │   ├── components/        # Reusable UI components
 │   │   │   ├── ui/            # shadcn/ui components
+│   │   │   ├── nav-bar.tsx    # Shared navigation bar
 │   │   │   ├── theme-provider.tsx
 │   │   │   ├── theme-toggle.tsx
 │   │   │   ├── wallet-button.tsx
@@ -23,14 +24,14 @@ A production-ready web application for creating and managing decentralized ident
 │   │   ├── pages/
 │   │   │   ├── landing.tsx    # Landing page (/)
 │   │   │   ├── console.tsx    # Platform console (/console)
-│   │   │   ├── claim.tsx      # Claim page (/claim)
+│   │   │   ├── claim-ipfs.tsx # IPFS-based claim page (/claim/:projectId/:cid)
 │   │   │   └── not-found.tsx
 │   │   ├── App.tsx
 │   │   └── index.css
 │   └── index.html
 ├── server/                    # Backend Express server
 │   ├── merkle.ts              # Merkle tree utilities
-│   ├── routes.ts              # API routes
+│   ├── routes.ts              # API routes (including IPFS upload)
 │   ├── storage.ts             # In-memory storage
 │   └── index.ts
 ├── shared/
@@ -43,20 +44,27 @@ A production-ready web application for creating and managing decentralized ident
 - **Frontend**: React, TypeScript, TailwindCSS, shadcn/ui
 - **Web3**: wagmi v2, viem, RainbowKit v2, merkletreejs
 - **Backend**: Express.js
+- **IPFS**: Pinata (for proof storage)
 - **Build**: Vite
 
 ## Domain Routes
 
 - `/` - Landing page with hero, features, and how-it-works accordion
 - `/console` - Platform console with 5-step onboarding wizard
-- `/claim` - Public self-claim page
+- `/claim/:projectId/:cid` - IPFS-based claim page (users arrive via shareable URL)
 
 ## API Endpoints
 
 ### POST /api/platform/upload
 - **Purpose**: Parse CSV and generate Merkle tree
 - **Body**: `{ slug: string, csvText: string }`
-- **Returns**: `{ merkleRoot: string, rowCount: number }`
+- **Returns**: `{ merkleRoot: string, rowCount: number, proofs: Record<address, {name, nameHash, proof}> }`
+
+### POST /api/upload-proofs
+- **Purpose**: Upload proof JSON to IPFS via Pinata
+- **Body**: `{ projectId: string, root: string, entries: [{name, address, nameHash, proof}] }`
+- **Returns**: `{ cid: string }`
+- **Requires**: `PINATA_JWT` environment variable
 
 ### GET /api/proof
 - **Purpose**: Generate Merkle proof for eligibility check
@@ -100,7 +108,7 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 ### ABI Exports (from abi.ts)
 - `rwaIdV2Abi` - Full contract ABI
 - `RWAID_V2_ADDRESS` - Contract address
-- `usdcAbi` - USDC ABI (approve/allowance)
+- `usdcAbi` - USDC ABI (approve/allowance/balanceOf)
 - `USDC_ADDRESS` - USDC contract address
 - `CHAIN_ID` - 1 (Ethereum Mainnet)
 
@@ -108,10 +116,12 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 - `createProject(slug, treasury, claimFee, transferable)` - Create new project (nonpayable)
 - `updateMerkleRoot(projectId, newRoot, newTotalAllowlisted)` - Update Merkle root
 - `claim(projectId, nameHash, proof)` - Claim identity token
+- `claimed(projectId, address)` - Check if address already claimed (view)
 - `projects(projectId)` - Read project data: [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue]
+- `minimumClaimFee()` - Read minimum claim fee (view)
 
 ### Project ID Lookup
-No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and match by `slugHash`. Console and claim pages both do this scan with a max of 50 projects and 3 consecutive error bail-out.
+No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and match by `slugHash`. Console does this scan with a max of 50 projects and 3 consecutive error bail-out.
 
 ## Environment Variables
 
@@ -119,6 +129,7 @@ No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and
 |----------|-------------|
 | VITE_REOWN_PROJECT_ID | RainbowKit/WalletConnect project ID |
 | SESSION_SECRET | Express session secret |
+| PINATA_JWT | Pinata API JWT for IPFS uploads (server-side only) |
 
 ## User Flows
 
@@ -127,19 +138,20 @@ No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and
 2. Create Project → slug, treasury address, claim fee (USD → USDC 6-decimal), transferable toggle
 3. Upload CSV → name,address pairs; editable Project ID field
 4. Update Merkle Root → On-chain transaction with gas estimation
-5. Complete → Claim link generated, proofs JSON downloadable
+5. Complete → Auto-uploads proofs to IPFS, generates shareable claim URL
 
 ### Platform Console (4 Steps - Existing Project)
 1. Connect Wallet & Select Project → Select from owned projects list
 2. Upload CSV → name,address pairs; Project ID auto-filled
 3. Update Merkle Root → On-chain transaction
-4. Complete → Updated claim link
+4. Complete → Auto-uploads proofs to IPFS, generates updated claim URL
 
-### Self-Claim Flow
-1. Connect wallet on /claim
-2. Auto-discovers claimable identities from server
-3. Click "Claim" → calls `claim(projectId, nameHash, proof)` on-chain
-4. View transaction on Etherscan
+### IPFS Claim Flow (End User)
+1. User opens shareable URL: `/claim/{projectId}/{ipfsCid}`
+2. App fetches proofs JSON from IPFS (tries Pinata, Cloudflare, ipfs.io gateways)
+3. User connects wallet → entry auto-detected from proof file
+4. If claim fee > 0: Approve USDC spend → auto-proceeds to claim
+5. Claim identity on-chain → shows ENS name: `{name}.{slug}.rwa-id.eth`
 
 ## Development Notes
 
@@ -148,5 +160,8 @@ No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and
 - Frontend uses Inter and Space Grotesk fonts
 - Dark/light theme support with localStorage persistence
 - Claim fee input is in USD, converted to USDC 6-decimal on-chain (e.g., $1.00 → 1000000)
+- Fee display uses `formatUnits(fee, 6)` from viem for precision-safe bigint conversion
 - No toast notifications — errors displayed inline
 - Wallet stack: RainbowKit v2 + wagmi v2 + viem
+- NavBar only shows "Platform Console" link — claim page reached via shareable URL only
+- IPFS gateways tried in order: Pinata → Cloudflare → ipfs.io (10s timeout each)

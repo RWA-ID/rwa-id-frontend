@@ -4,6 +4,17 @@ import { storage } from "./storage";
 import { buildMerkleTree, generateProof, parseCSV, computeNameHash } from "./merkle";
 import { z } from "zod";
 
+const uploadProofsSchema = z.object({
+  projectId: z.union([z.string(), z.number()]),
+  root: z.string(),
+  entries: z.array(z.object({
+    name: z.string(),
+    address: z.string(),
+    nameHash: z.string(),
+    proof: z.array(z.string()),
+  })),
+});
+
 const uploadSchema = z.object({
   slug: z.string().min(1, "Slug is required"),
   csvText: z.string().min(1, "CSV content is required"),
@@ -194,6 +205,52 @@ export async function registerRoutes(
       return res.status(500).json({ 
         error: "Failed to fetch claimable identities",
         claims: [],
+      });
+    }
+  });
+
+  app.post("/api/upload-proofs", async (req, res) => {
+    try {
+      const validation = uploadProofsSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: validation.error.errors[0]?.message || "Invalid request" 
+        });
+      }
+
+      const pinataJwt = process.env.PINATA_JWT;
+      if (!pinataJwt) {
+        return res.status(500).json({ error: "IPFS upload not configured" });
+      }
+
+      const pinataRes = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${pinataJwt}`,
+        },
+        body: JSON.stringify({
+          pinataContent: validation.data,
+          pinataMetadata: {
+            name: `rwa-id-proofs-project-${validation.data.projectId}-${Date.now()}`,
+          },
+          pinataOptions: { cidVersion: 1 },
+        }),
+      });
+
+      if (!pinataRes.ok) {
+        const err = await pinataRes.text();
+        console.error("Pinata upload failed:", err);
+        return res.status(500).json({ error: "IPFS upload failed" });
+      }
+
+      const data = await pinataRes.json();
+      return res.json({ cid: data.IpfsHash });
+    } catch (error) {
+      console.error("Upload proofs error:", error);
+      return res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Failed to upload proofs" 
       });
     }
   });

@@ -29,7 +29,6 @@ import {
   AlertTriangle,
   FileText,
   Link as LinkIcon,
-  Download,
 } from "lucide-react";
 
 const STEPS_NEW = ["Connect", "Create Project", "Upload CSV", "Set Root", "Complete"];
@@ -89,6 +88,10 @@ export default function Platform() {
   const [rowCount, setRowCount] = useState(0);
   const [copied, setCopied] = useState(false);
   const [proofsData, setProofsData] = useState<Record<string, { name: string; nameHash: string; proof: string[] }> | null>(null);
+  const [claimUrl, setClaimUrl] = useState<string | null>(null);
+  const [ipfsCid, setIpfsCid] = useState<string | null>(null);
+  const [isUploadingToIpfs, setIsUploadingToIpfs] = useState(false);
+  const [ipfsError, setIpfsError] = useState<string | null>(null);
   const [estimatedGas, setEstimatedGas] = useState<bigint | null>(null);
   const [gasPrice, setGasPrice] = useState<bigint | null>(null);
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
@@ -546,30 +549,48 @@ export default function Platform() {
   }, [projectId, merkleRoot, rowCount, estimatedGas, updateMerkleRoot, actualChainId, switchChain]);
 
   
-  const downloadProofsJson = useCallback(() => {
-    if (!proofsData || !slugHash || !projectId) return;
+  const uploadProofsToIpfs = useCallback(async () => {
+    if (!proofsData || !projectId) return;
     
-    const proofsFile = {
-      chainId: CHAIN_ID,
-      registry: RWAID_V2_ADDRESS,
-      slug: slug.trim().toLowerCase(),
-      slugHash: slugHash,
-      projectId: projectId.toString(),
-      merkleRoot: merkleRoot,
-      entries: proofsData,
-    };
+    setIsUploadingToIpfs(true);
+    setIpfsError(null);
     
-    const blob = new Blob([JSON.stringify(proofsFile, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `allowlist_proofs_${slug}_project${projectId}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-  }, [proofsData, slugHash, projectId, slug, merkleRoot]);
+    try {
+      const entries = Object.entries(proofsData).map(([address, data]) => ({
+        name: data.name,
+        address: address.toLowerCase(),
+        nameHash: data.nameHash,
+        proof: data.proof,
+      }));
+
+      const proofFile = {
+        projectId: projectId.toString(),
+        root: merkleRoot,
+        entries,
+      };
+
+      const res = await fetch("/api/upload-proofs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proofFile),
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: "IPFS upload failed" }));
+        throw new Error(errData.error || "IPFS upload failed");
+      }
+      
+      const { cid } = await res.json();
+      setIpfsCid(cid);
+      const url = `${window.location.origin}/claim/${projectId.toString()}/${cid}`;
+      setClaimUrl(url);
+    } catch (error) {
+      console.error("IPFS upload error:", error);
+      setIpfsError(error instanceof Error ? error.message : "Failed to upload to IPFS");
+    } finally {
+      setIsUploadingToIpfs(false);
+    }
+  }, [proofsData, projectId, merkleRoot]);
 
   const handleUploadCSV = () => {
     if (!csvText || !slug) return;
@@ -587,9 +608,15 @@ export default function Platform() {
     reader.readAsText(file);
   };
 
+  useEffect(() => {
+    if (setRootSuccess && proofsData && projectId && !claimUrl && !isUploadingToIpfs && !ipfsError) {
+      uploadProofsToIpfs();
+    }
+  }, [setRootSuccess, proofsData, projectId, claimUrl, isUploadingToIpfs, ipfsError, uploadProofsToIpfs]);
+
   const copyClaimLink = () => {
-    const link = `${window.location.origin}/claim?slug=${slug}`;
-    navigator.clipboard.writeText(link);
+    if (!claimUrl) return;
+    navigator.clipboard.writeText(claimUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -1304,50 +1331,85 @@ export default function Platform() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 rounded-lg bg-muted text-center">
-                <p className="text-sm text-muted-foreground mb-2">Claim Link</p>
-                <p className="font-mono text-sm break-all" data-testid="text-claim-link">
-                  {window.location.origin}/claim?slug={slug}
-                </p>
-              </div>
-              <Button
-                onClick={copyClaimLink}
-                variant="outline"
-                className="w-full"
-                data-testid="button-copy-claim-link"
-              >
-                {copied ? (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Claim Link
-                  </>
-                )}
-              </Button>
-              {proofsData && (
-                <Button
-                  onClick={downloadProofsJson}
-                  variant="outline"
-                  className="w-full"
-                  data-testid="button-download-proofs"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Proofs JSON
-                </Button>
+              {isUploadingToIpfs && (
+                <div className="p-4 rounded-lg bg-muted flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">Uploading proofs to IPFS...</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">This will generate a shareable claim link</p>
+                  </div>
+                </div>
               )}
-              <p className="text-xs text-muted-foreground text-center">
-                Host the proofs JSON on your servers. Users will need this to claim their identities.
-              </p>
-              <Link href={`/claim?slug=${slug}`}>
-                <Button className="w-full" data-testid="button-view-claim">
-                  <LinkIcon className="mr-2 h-4 w-4" />
-                  View Claim Page
-                </Button>
-              </Link>
+
+              {ipfsError && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <div className="space-y-1">
+                        <p className="text-sm text-destructive">{ipfsError}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={uploadProofsToIpfs}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-retry-ipfs"
+                  >
+                    Retry IPFS Upload
+                  </Button>
+                </div>
+              )}
+
+              {claimUrl && (
+                <>
+                  <div className="p-4 rounded-lg bg-green-500/5 border border-green-500/20">
+                    <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-3">
+                      Allowlist live — share this link with your clients:
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={claimUrl}
+                        className="flex-1 bg-background border rounded-md px-3 py-2 font-mono text-xs"
+                        data-testid="input-claim-url"
+                      />
+                      <Button
+                        onClick={copyClaimLink}
+                        variant={copied ? "default" : "outline"}
+                        size="sm"
+                        data-testid="button-copy-claim-link"
+                      >
+                        {copied ? (
+                          <>
+                            <CheckCircle className="mr-1 h-3 w-3" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-1 h-3 w-3" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {ipfsCid && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Proofs stored on IPFS · CID: {ipfsCid.slice(0, 16)}...
+                      </p>
+                    )}
+                  </div>
+
+                  <Link href={`/claim/${projectId?.toString()}/${ipfsCid}`}>
+                    <Button className="w-full" data-testid="button-view-claim">
+                      <LinkIcon className="mr-2 h-4 w-4" />
+                      View Claim Page
+                    </Button>
+                  </Link>
+                </>
+              )}
+
               <Button
                 variant="ghost"
                 className="w-full"
@@ -1359,6 +1421,9 @@ export default function Platform() {
                   setMerkleRoot("");
                   setRowCount(0);
                   setProofsData(null);
+                  setClaimUrl(null);
+                  setIpfsCid(null);
+                  setIpfsError(null);
                   setIsExistingProject(false);
                   setSlugVerified(false);
                   setSlugCheckError(null);
@@ -1366,7 +1431,6 @@ export default function Platform() {
                   setEstimatedGas(null);
                   setGasPrice(null);
                   setGasError(null);
-                  // Refresh user projects list
                   fetchUserProjects();
                 }}
                 data-testid="button-create-another"

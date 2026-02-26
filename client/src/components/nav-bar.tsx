@@ -25,15 +25,6 @@ export function NavBar({ showWallet = false }: { showWallet?: boolean }) {
                 Platform Console
               </Button>
             </Link>
-            <Link href="/claim">
-              <Button
-                variant={location === "/claim" ? "secondary" : "ghost"}
-                size="sm"
-                data-testid="link-claim-nav"
-              >
-                Claim Identity
-              </Button>
-            </Link>
             {showWallet && <WalletButton />}
             <ThemeToggle />
           </div>
