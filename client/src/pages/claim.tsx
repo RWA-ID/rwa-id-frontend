@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "wouter";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
-import { keccak256, toBytes } from "viem";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain, useChainId, usePublicClient } from "wagmi";
+import { keccak256, toBytes, formatUnits } from "viem";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletButton } from "@/components/wallet-button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { rwaIdV2Abi, RWAID_V2_ADDRESS, CHAIN_ID } from "@/lib/abi";
+import { NavBar } from "@/components/nav-bar";
+import { rwaIdV2Abi, RWAID_V2_ADDRESS, usdcAbi, USDC_ADDRESS, CHAIN_ID } from "@/lib/abi";
 import {
   Fingerprint,
   CheckCircle,
@@ -18,6 +17,8 @@ import {
   RefreshCw,
   Shield,
   Sparkles,
+  BadgeCheck,
+  DollarSign,
 } from "lucide-react";
 
 interface ClaimableIdentity {
@@ -33,31 +34,81 @@ interface ClaimableResponse {
   error?: string;
 }
 
-function ClaimCard({ 
-  claim, 
+function formatUsdcFee(fee: bigint): string {
+  const formatted = formatUnits(fee, 6);
+  const num = parseFloat(formatted);
+  return num.toFixed(2);
+}
+
+function ClaimCard({
+  claim,
   onChainProjectId,
-  isWrongNetwork 
-}: { 
+  claimFee,
+  isWrongNetwork,
+}: {
   claim: ClaimableIdentity;
   onChainProjectId: bigint | undefined;
+  claimFee: bigint;
   isWrongNetwork: boolean;
 }) {
   const { address } = useAccount();
-  
-  const { writeContract: claimIdentity, data: claimTxHash, isPending: isClaiming } = useWriteContract();
+  const publicClient = usePublicClient();
+
+  const [alreadyClaimed, setAlreadyClaimed] = useState<boolean | null>(null);
+  const [step, setStep] = useState<"idle" | "approving" | "claiming">("idle");
+
+  const { data: isClaimed, isLoading: isCheckingClaimed } = useReadContract({
+    address: RWAID_V2_ADDRESS,
+    abi: rwaIdV2Abi,
+    functionName: "claimed",
+    args: onChainProjectId && address ? [onChainProjectId, address] : undefined,
+    query: { enabled: !!onChainProjectId && !!address },
+  });
+
+  useEffect(() => {
+    if (isClaimed !== undefined) {
+      setAlreadyClaimed(isClaimed as boolean);
+    }
+  }, [isClaimed]);
+
+  const { data: currentAllowance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: usdcAbi,
+    functionName: "allowance",
+    args: address ? [address, RWAID_V2_ADDRESS] : undefined,
+    query: { enabled: !!address && claimFee > BigInt(0) },
+  });
+
+  const { writeContract: approveUsdc, data: approveTxHash, isPending: isApprovePending } = useWriteContract();
+  const { isLoading: isWaitingApprove, isSuccess: approveSuccess } = useWaitForTransactionReceipt({
+    hash: approveTxHash,
+  });
+
+  const { writeContract: claimIdentity, data: claimTxHash, isPending: isClaimPending } = useWriteContract();
   const { isLoading: isWaitingClaim, isSuccess: claimSuccess } = useWaitForTransactionReceipt({
     hash: claimTxHash,
   });
 
+  const needsApproval = claimFee > BigInt(0) && (!currentAllowance || (currentAllowance as bigint) < claimFee);
+
+  const handleApprove = useCallback(() => {
+    if (!address) return;
+    setStep("approving");
+    approveUsdc({
+      address: USDC_ADDRESS,
+      abi: usdcAbi,
+      functionName: "approve",
+      args: [RWAID_V2_ADDRESS, claimFee],
+      chainId: CHAIN_ID,
+    }, {
+      onError: () => setStep("idle"),
+    });
+  }, [address, claimFee, approveUsdc]);
+
   const handleClaim = useCallback(() => {
     if (!onChainProjectId || !address) return;
-    
-    console.log("=== Claim Debug (claim) ===");
-    console.log("projectId:", onChainProjectId.toString());
-    console.log("nameHash:", claim.nameHash);
-    console.log("proof:", claim.proof);
-    console.log("proof length:", claim.proof.length);
-    
+    setStep("claiming");
+
     claimIdentity({
       address: RWAID_V2_ADDRESS,
       abi: rwaIdV2Abi,
@@ -67,31 +118,59 @@ function ClaimCard({
         claim.nameHash as `0x${string}`,
         claim.proof as `0x${string}`[],
       ],
+      chainId: CHAIN_ID,
     }, {
-      onSuccess: () => {
-        console.log(`Claiming ${claim.name}.${claim.slug}.rwa-id.eth...`);
-      },
-      onError: (error) => {
-        console.error("Claim error:", error);
-      },
+      onError: () => setStep("idle"),
     });
   }, [onChainProjectId, address, claim, claimIdentity]);
 
-  if (claimSuccess) {
+  useEffect(() => {
+    if (approveSuccess && step === "approving") {
+      handleClaim();
+    }
+  }, [approveSuccess, step, handleClaim]);
+
+  useEffect(() => {
+    if (claimSuccess) {
+      setAlreadyClaimed(true);
+    }
+  }, [claimSuccess]);
+
+  if (isCheckingClaimed) {
     return (
-      <div 
+      <div className="p-5 rounded-xl bg-card border" data-testid={`card-loading-${claim.slug}-${claim.name}`}>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-heading text-lg font-semibold truncate">
+              {claim.name}.{claim.slug}.rwa-id.eth
+            </p>
+            <p className="text-sm text-muted-foreground">Checking status...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (alreadyClaimed || claimSuccess) {
+    return (
+      <div
         className="p-5 rounded-xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20"
         data-testid={`card-claimed-${claim.slug}-${claim.name}`}
       >
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-            <CheckCircle className="w-6 h-6 text-green-500" />
+            <BadgeCheck className="w-6 h-6 text-green-500" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-heading text-lg font-semibold text-green-700 dark:text-green-400" data-testid={`text-claimed-${claim.slug}-${claim.name}`}>
               {claim.name}.{claim.slug}.rwa-id.eth
             </p>
-            <p className="text-sm text-muted-foreground">Successfully claimed</p>
+            <p className="text-sm text-muted-foreground">
+              {claimSuccess ? "Successfully claimed" : "Already claimed"}
+            </p>
           </div>
           {claimTxHash && (
             <a
@@ -110,8 +189,10 @@ function ClaimCard({
     );
   }
 
+  const isBusy = isCheckingClaimed || isApprovePending || isWaitingApprove || isClaimPending || isWaitingClaim;
+
   return (
-    <div 
+    <div
       className="p-5 rounded-xl bg-card border hover-elevate transition-all"
       data-testid={`card-claim-${claim.slug}-${claim.name}`}
     >
@@ -123,25 +204,48 @@ function ClaimCard({
           <p className="font-heading text-lg font-semibold truncate" data-testid={`text-identity-${claim.slug}-${claim.name}`}>
             {claim.name}.{claim.slug}.rwa-id.eth
           </p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <Badge variant="secondary" className="text-xs">
               {claim.slug}
             </Badge>
             <span className="text-xs text-muted-foreground">
               Project #{onChainProjectId?.toString() || "..."}
             </span>
+            {claimFee > BigInt(0) && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <DollarSign className="w-3 h-3" />
+                {formatUsdcFee(claimFee)} USDC
+              </span>
+            )}
           </div>
         </div>
         <Button
-          onClick={handleClaim}
-          disabled={isWrongNetwork || isClaiming || isWaitingClaim || !onChainProjectId}
+          onClick={needsApproval ? handleApprove : handleClaim}
+          disabled={isWrongNetwork || isBusy || !onChainProjectId}
           data-testid={`button-claim-${claim.slug}-${claim.name}`}
         >
-          {isClaiming || isWaitingClaim ? (
+          {isApprovePending ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {isClaiming ? "Confirm..." : "Claiming..."}
+              Approve...
             </>
+          ) : isWaitingApprove ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Approving...
+            </>
+          ) : isClaimPending ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Confirm...
+            </>
+          ) : isWaitingClaim ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Claiming...
+            </>
+          ) : needsApproval ? (
+            "Approve USDC spend"
           ) : (
             <>
               <Shield className="w-4 h-4 mr-2" />
@@ -151,16 +255,18 @@ function ClaimCard({
         </Button>
       </div>
 
-      {claimTxHash && !claimSuccess && (
+      {(claimTxHash || approveTxHash) && !claimSuccess && (
         <div className="mt-4 pt-4 border-t">
           <a
-            href={`https://etherscan.io/tx/${claimTxHash}`}
+            href={`https://etherscan.io/tx/${claimTxHash || approveTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <Loader2 className="w-3 h-3 animate-spin" />
-            <span className="font-mono text-xs">{claimTxHash.slice(0, 12)}...{claimTxHash.slice(-8)}</span>
+            <span className="font-mono text-xs">
+              {(claimTxHash || approveTxHash)?.slice(0, 12)}...{(claimTxHash || approveTxHash)?.slice(-8)}
+            </span>
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>
@@ -173,10 +279,11 @@ function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIde
   const publicClient = usePublicClient();
   const slugHash = keccak256(toBytes(claim.slug.trim().toLowerCase()));
   const [projectId, setProjectId] = useState<bigint | undefined>(undefined);
+  const [claimFee, setClaimFee] = useState<bigint>(BigInt(0));
 
   useEffect(() => {
     if (!publicClient) return;
-    
+
     let cancelled = false;
     const findProject = async () => {
       let consecutiveErrors = 0;
@@ -189,10 +296,13 @@ function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIde
             functionName: "projects",
             args: [BigInt(i)],
           }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
-          
+
           consecutiveErrors = 0;
           if (projectInfo[2] === slugHash) {
-            if (!cancelled) setProjectId(BigInt(i));
+            if (!cancelled) {
+              setProjectId(BigInt(i));
+              setClaimFee(projectInfo[4]);
+            }
             return;
           }
         } catch {
@@ -201,15 +311,16 @@ function ClaimCardWithProjectId({ claim, isWrongNetwork }: { claim: ClaimableIde
         }
       }
     };
-    
+
     findProject();
     return () => { cancelled = true; };
   }, [publicClient, slugHash]);
 
   return (
-    <ClaimCard 
-      claim={claim} 
+    <ClaimCard
+      claim={claim}
       onChainProjectId={projectId}
+      claimFee={claimFee}
       isWrongNetwork={isWrongNetwork}
     />
   );
@@ -219,7 +330,7 @@ export default function Claim() {
   const { address, isConnected, chain } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-  
+
   const actualChainId = chain?.id ?? chainId;
   const isWrongNetwork = isConnected && actualChainId !== CHAIN_ID;
   const isCorrectNetwork = isConnected && actualChainId === CHAIN_ID;
@@ -231,14 +342,14 @@ export default function Claim() {
 
   const fetchClaimable = useCallback(async () => {
     if (!address) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`/api/claimable?address=${address}`);
       const data: ClaimableResponse = await response.json();
-      
+
       if (data.error) {
         setError(data.error);
         setClaims([]);
@@ -265,26 +376,7 @@ export default function Claim() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 h-16">
-            <Link href="/" className="flex items-center gap-2" data-testid="link-home">
-              <Fingerprint className="h-8 w-8 text-primary" />
-              <span className="font-heading text-xl font-bold">RWA-ID</span>
-            </Link>
-            <div className="flex items-center gap-3 flex-wrap">
-              {isCorrectNetwork && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  Ethereum
-                </Badge>
-              )}
-              <WalletButton />
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </header>
+      <NavBar showWallet />
 
       <main className="py-12 sm:py-20">
         <div className="max-w-xl mx-auto px-4 sm:px-6">
@@ -328,7 +420,7 @@ export default function Claim() {
                   <p className="text-muted-foreground mb-6">
                     Please switch to Ethereum Mainnet to claim your identities
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => switchChain({ chainId: CHAIN_ID })}
                     data-testid="button-switch-network"
                   >
@@ -349,7 +441,7 @@ export default function Claim() {
                     Something went wrong
                   </h2>
                   <p className="text-muted-foreground mb-6">{error}</p>
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={fetchClaimable}
                     data-testid="button-retry"
@@ -373,8 +465,8 @@ export default function Claim() {
                     {address?.slice(0, 6)}...{address?.slice(-4)}
                   </p>
                   <div className="mt-6">
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="sm"
                       onClick={fetchClaimable}
                       data-testid="button-refresh"
@@ -395,20 +487,20 @@ export default function Claim() {
                         {claims.length} {claims.length === 1 ? "identity" : "identities"} available to claim
                       </p>
                     </div>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       onClick={fetchClaimable}
                       disabled={isLoading}
                       data-testid="button-refresh"
                     >
-                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
                     </Button>
                   </div>
-                  
+
                   <div className="space-y-3">
                     {claims.map((claim, index) => (
-                      <ClaimCardWithProjectId 
+                      <ClaimCardWithProjectId
                         key={`${claim.slug}-${claim.name}-${index}`}
                         claim={claim}
                         isWrongNetwork={isWrongNetwork}
@@ -420,11 +512,14 @@ export default function Claim() {
             </CardContent>
           </Card>
 
-          <div className="mt-8 text-center">
-            <p className="text-xs text-muted-foreground">
-              Identities are soulbound tokens on Ethereum Mainnet
-            </p>
-          </div>
+          {isCorrectNetwork && (
+            <div className="mt-8 text-center">
+              <Badge variant="outline" className="text-xs gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                Connected to Ethereum Mainnet
+              </Badge>
+            </div>
+          )}
         </div>
       </main>
     </div>

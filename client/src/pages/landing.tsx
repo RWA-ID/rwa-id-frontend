@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { NavBar } from "@/components/nav-bar";
 import {
   Building2,
   Users,
@@ -43,29 +43,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 h-16">
-            <div className="flex items-center gap-2">
-              <Fingerprint className="h-8 w-8 text-primary" />
-              <span className="font-heading text-xl font-bold">RWA-ID</span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Link href="/console">
-                <Button variant="ghost" size="sm" data-testid="link-console-nav">
-                  Platform Console
-                </Button>
-              </Link>
-              <Link href="/claim">
-                <Button variant="ghost" size="sm" data-testid="link-claim-nav">
-                  Claim
-                </Button>
-              </Link>
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </header>
+      <NavBar />
 
       <main>
         <section className="relative min-h-[calc(100vh-4rem)] flex items-center py-12 sm:py-16 lg:py-24 overflow-hidden">

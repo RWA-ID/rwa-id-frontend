@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Stepper } from "@/components/stepper";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NavBar } from "@/components/nav-bar";
 import { rwaIdV2Abi, RWAID_V2_ADDRESS, CHAIN_ID } from "@/lib/abi";
 import { apiRequest } from "@/lib/queryClient";
 import type { UploadResponse } from "@shared/schema";
@@ -1382,20 +1383,7 @@ export default function Platform() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <Fingerprint className="h-8 w-8 text-primary" />
-              <span className="font-heading text-xl font-bold">RWA-ID</span>
-            </Link>
-            <div className="flex items-center gap-4 flex-wrap">
-              <WalletButton />
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </header>
+      <NavBar showWallet />
 
       <main className="py-8 sm:py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
