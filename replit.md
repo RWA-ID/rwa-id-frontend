@@ -119,9 +119,17 @@ leaf = keccak256(abi.encodePacked(address, nameHash))
 - `claimed(projectId, address)` - Check if address already claimed (view)
 - `projects(projectId)` - Read project data: [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue]
 - `minimumClaimFee()` - Read minimum claim fee (view)
+- `projectIdBySlugHash(slugHash)` - Look up project ID by slug hash (view, returns 0 if not found)
+- `reservedTo(slugHash)` - Check which address a slug is reserved for (view)
+- `reservationExpiry(slugHash)` - Check when a slug reservation expires (view)
 
 ### Project ID Lookup
-No `projectIdBySlugHash` in v2. Must scan `projects(1)`, `projects(2)`, etc. and match by `slugHash`. Console does this scan with a max of 50 projects and 3 consecutive error bail-out.
+`projectIdBySlugHash(slugHash)` used in slug availability checker. For user project discovery, console still scans `projects(1..50)` matching by owner address.
+
+### Slug Availability (Create Step)
+- Debounced 500ms check on slug input using `projectIdBySlugHash`, `reservedTo`, `reservationExpiry`
+- Three states: available (green), reserved (amber), taken (red)
+- Create Project button disabled unless slug shows as available
 
 ## Environment Variables
 

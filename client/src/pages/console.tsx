@@ -104,6 +104,11 @@ export default function Platform() {
   const [slugCheckError, setSlugCheckError] = useState<string | null>(null);
   const [slugVerified, setSlugVerified] = useState(false);
   
+  // Slug availability for create step
+  const [slugAvailability, setSlugAvailability] = useState<"idle" | "checking" | "available" | "taken" | "reserved" | "error">("idle");
+  const [slugAvailError, setSlugAvailError] = useState<string | null>(null);
+  const slugCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   // Auto-discovered projects for connected wallet
   const [userProjects, setUserProjects] = useState<Array<{
     projectId: bigint;
@@ -237,54 +242,82 @@ export default function Platform() {
       
       console.log("Checking slug:", normalizedSlug, "Hash:", computedSlugHash);
       
-      // Scan projects to find one with matching slugHash
+      // Use projectIdBySlugHash for fast lookup
       let foundProjectId: bigint | null = null;
-      const maxProjectsToCheck = 50;
-      let consecutiveErrors = 0;
       
-      for (let i = 1; i <= maxProjectsToCheck; i++) {
-        try {
-          const projectInfo = await publicClient.readContract({
-            address: RWAID_V2_ADDRESS,
-            abi: rwaIdV2Abi,
-            functionName: "projects",
-            args: [BigInt(i)],
-          }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
-          // [owner, slug, slugHash, treasury, claimFee, transferable, merkleRoot, active, totalClaimed, totalRevenue]
-          
-          consecutiveErrors = 0;
-          
-          if (projectInfo[2] === computedSlugHash) {
-            foundProjectId = BigInt(i);
-            const owner = projectInfo[0];
-            const isTransferable = projectInfo[5];
-            
-            if (owner.toLowerCase() === address.toLowerCase()) {
-              setProjectId(foundProjectId);
-              setProjectAdmin(owner);
-              setTransferable(isTransferable);
-              setIsExistingProject(true);
-              setSlugVerified(true);
-            } else {
-              setSlugCheckError(`This slug is owned by ${owner.slice(0, 6)}...${owner.slice(-4)}. Please use a different slug or switch wallets.`);
-            }
-            break;
-          }
-        } catch {
-          consecutiveErrors++;
-          if (consecutiveErrors >= 3) break;
+      const existingId = await publicClient.readContract({
+        address: RWAID_V2_ADDRESS,
+        abi: rwaIdV2Abi,
+        functionName: "projectIdBySlugHash",
+        args: [computedSlugHash],
+      }) as bigint;
+      
+      if (existingId > BigInt(0)) {
+        foundProjectId = existingId;
+        const projectInfo = await publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "projects",
+          args: [existingId],
+        }) as readonly [string, string, string, string, bigint, boolean, string, boolean, bigint, bigint];
+        
+        const owner = projectInfo[0];
+        const isTransferable = projectInfo[5];
+        
+        if (owner.toLowerCase() === address.toLowerCase()) {
+          setProjectId(foundProjectId);
+          setProjectAdmin(owner);
+          setTransferable(isTransferable);
+          setIsExistingProject(true);
+          setSlugVerified(true);
+        } else {
+          setSlugCheckError(`This slug is owned by ${owner.slice(0, 6)}...${owner.slice(-4)}. Please use a different slug or switch wallets.`);
         }
       }
       
       if (foundProjectId === null) {
-        // Project doesn't exist - new project flow
-        setIsExistingProject(false);
-        setSlugVerified(true);
-        setProjectId(null);
-        setProjectAdmin(null);
-        setEstimatedGas(null);
-        setGasPrice(null);
-        setGasError(null);
+        // Project doesn't exist yet — check if slug is reserved
+        const reservedAddr = await publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "reservedTo",
+          args: [computedSlugHash],
+        }) as string;
+
+        const expiry = await publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "reservationExpiry",
+          args: [computedSlugHash],
+        }) as bigint;
+
+        const zeroAddress = "0x0000000000000000000000000000000000000000";
+        const now = Math.floor(Date.now() / 1000);
+        const isReserved = reservedAddr !== zeroAddress && now < Number(expiry);
+
+        if (isReserved && reservedAddr.toLowerCase() !== address.toLowerCase()) {
+          setSlugCheckError(`This slug is reserved for ${reservedAddr.slice(0, 6)}...${reservedAddr.slice(-4)}. Please choose a different slug.`);
+          setProjectId(null);
+          setProjectAdmin(null);
+        } else if (isReserved && reservedAddr.toLowerCase() === address.toLowerCase()) {
+          // Reserved to the connected wallet — they can proceed
+          setIsExistingProject(false);
+          setSlugVerified(true);
+          setProjectId(null);
+          setProjectAdmin(null);
+          setEstimatedGas(null);
+          setGasPrice(null);
+          setGasError(null);
+        } else {
+          // Available (or reserved to the connected wallet)
+          setIsExistingProject(false);
+          setSlugVerified(true);
+          setProjectId(null);
+          setProjectAdmin(null);
+          setEstimatedGas(null);
+          setGasPrice(null);
+          setGasError(null);
+        }
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -373,6 +406,82 @@ export default function Platform() {
     setProjectAdmin(address || null);
     
   }, [address]);
+
+  // Debounced slug availability check for the create step
+  useEffect(() => {
+    if (slugCheckTimerRef.current) {
+      clearTimeout(slugCheckTimerRef.current);
+    }
+
+    // Only run on the create step for new projects
+    const logicalStep = isExistingProject 
+      ? ["connect", "upload", "setroot", "complete"][currentStep] 
+      : ["connect", "create", "upload", "setroot", "complete"][currentStep];
+    
+    if (logicalStep !== "create" || !slug || !publicClient || isExistingProject) {
+      setSlugAvailability("idle");
+      setSlugAvailError(null);
+      return;
+    }
+
+    setSlugAvailability("checking");
+    setSlugAvailError(null);
+
+    slugCheckTimerRef.current = setTimeout(async () => {
+      try {
+        const normalizedSlug = slug.trim().toLowerCase();
+        const computedSlugHash = keccak256(toBytes(normalizedSlug));
+
+        const existingProjectId = await publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "projectIdBySlugHash",
+          args: [computedSlugHash],
+        }) as bigint;
+
+        if (existingProjectId > BigInt(0)) {
+          setSlugAvailability("taken");
+          return;
+        }
+
+        const reservedAddr = await publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "reservedTo",
+          args: [computedSlugHash],
+        }) as string;
+
+        const expiry = await publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "reservationExpiry",
+          args: [computedSlugHash],
+        }) as bigint;
+
+        const zeroAddress = "0x0000000000000000000000000000000000000000";
+        const isReserved = reservedAddr !== zeroAddress 
+          && Date.now() / 1000 < Number(expiry) 
+          && reservedAddr.toLowerCase() !== address?.toLowerCase();
+
+        if (isReserved) {
+          setSlugAvailability("reserved");
+          return;
+        }
+
+        setSlugAvailability("available");
+      } catch (error) {
+        console.error("Slug availability check failed:", error);
+        setSlugAvailability("error");
+        setSlugAvailError(error instanceof Error ? error.message.slice(0, 100) : "Check failed");
+      }
+    }, 500);
+
+    return () => {
+      if (slugCheckTimerRef.current) {
+        clearTimeout(slugCheckTimerRef.current);
+      }
+    };
+  }, [slug, publicClient, address, currentStep, isExistingProject]);
 
   const handleCreateProject = useCallback(() => {
     if (!slug || !address) return;
@@ -853,8 +962,16 @@ export default function Platform() {
                     </p>
                   </div>
                   
-                  {slugCheckError && (
-                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  {slugCheckError && slugCheckError.includes("reserved") && (
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20" data-testid="slug-check-reserved">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-amber-700 dark:text-amber-300">{slugCheckError}</p>
+                      </div>
+                    </div>
+                  )}
+                  {slugCheckError && !slugCheckError.includes("reserved") && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20" data-testid="slug-check-error">
                       <div className="flex items-start gap-2">
                         <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
                         <p className="text-sm text-destructive">{slugCheckError}</p>
@@ -917,12 +1034,42 @@ export default function Platform() {
                   placeholder="e.g., securitize"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                  disabled={isCreating || isWaitingCreate}
+                  disabled={isCreating || isWaitingCreate || createSuccess}
                   data-testid="input-slug"
                 />
                 <p className="text-xs text-muted-foreground">
                   Your namespace: *.{slug || "slug"}.rwa-id.eth
                 </p>
+                {slug && slugAvailability === "checking" && (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm" data-testid="slug-status-checking">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Checking availability...</span>
+                  </div>
+                )}
+                {slug && slugAvailability === "available" && (
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm" data-testid="slug-status-available">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span><strong>{slug}</strong> is available</span>
+                  </div>
+                )}
+                {slug && slugAvailability === "reserved" && (
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm" data-testid="slug-status-reserved">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>This namespace is reserved for a partner platform</span>
+                  </div>
+                )}
+                {slug && slugAvailability === "taken" && (
+                  <div className="flex items-center gap-2 text-destructive text-sm" data-testid="slug-status-taken">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>This slug has already been registered</span>
+                  </div>
+                )}
+                {slug && slugAvailability === "error" && (
+                  <div className="flex items-center gap-2 text-destructive text-sm" data-testid="slug-status-error">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>{slugAvailError || "Availability check failed"}</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="treasury">Treasury Address</Label>
@@ -981,7 +1128,7 @@ export default function Platform() {
               </div>
               <Button
                 onClick={handleCreateProject}
-                disabled={!slug || isCreating || isWaitingCreate || createSuccess}
+                disabled={!slug || slugAvailability !== "available" || isCreating || isWaitingCreate || createSuccess}
                 className="w-full"
                 data-testid="button-create-project"
               >
@@ -1427,6 +1574,8 @@ export default function Platform() {
                   setIsExistingProject(false);
                   setSlugVerified(false);
                   setSlugCheckError(null);
+                  setSlugAvailability("idle");
+                  setSlugAvailError(null);
                   setProjectAdmin(null);
                   setEstimatedGas(null);
                   setGasPrice(null);

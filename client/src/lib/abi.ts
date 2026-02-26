@@ -72,6 +72,27 @@ export const rwaIdV2Abi = [
     outputs: [{ type: "uint256" }],
   },
   {
+    name: "projectIdBySlugHash",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "slugHash", type: "bytes32" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "reservedTo",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "slugHash", type: "bytes32" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    name: "reservationExpiry",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "slugHash", type: "bytes32" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
     name: "ProjectCreated",
     type: "event",
     inputs: [
