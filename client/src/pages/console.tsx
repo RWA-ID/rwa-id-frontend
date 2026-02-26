@@ -242,18 +242,34 @@ export default function Platform() {
       
       console.log("Checking slug:", normalizedSlug, "Hash:", computedSlugHash);
       
-      // Use projectIdBySlugHash for fast lookup
-      let foundProjectId: bigint | null = null;
-      
-      const existingId = await publicClient.readContract({
-        address: RWAID_V2_ADDRESS,
-        abi: rwaIdV2Abi,
-        functionName: "projectIdBySlugHash",
-        args: [computedSlugHash],
-      }) as bigint;
-      
-      if (existingId > BigInt(0)) {
-        foundProjectId = existingId;
+      // Check all three contract values in parallel for speed and resilience
+      const [existingIdResult, reservedAddrResult, expiryResult] = await Promise.allSettled([
+        publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "projectIdBySlugHash",
+          args: [computedSlugHash],
+        }),
+        publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "reservedTo",
+          args: [computedSlugHash],
+        }),
+        publicClient.readContract({
+          address: RWAID_V2_ADDRESS,
+          abi: rwaIdV2Abi,
+          functionName: "reservationExpiry",
+          args: [computedSlugHash],
+        }),
+      ]);
+
+      const existingId = existingIdResult.status === "fulfilled" ? existingIdResult.value as bigint : null;
+      const reservedAddr = reservedAddrResult.status === "fulfilled" ? reservedAddrResult.value as string : null;
+      const expiry = expiryResult.status === "fulfilled" ? expiryResult.value as bigint : null;
+
+      // 1. Check if slug is already a created project
+      if (existingId !== null && existingId > BigInt(0)) {
         const projectInfo = await publicClient.readContract({
           address: RWAID_V2_ADDRESS,
           abi: rwaIdV2Abi,
@@ -265,7 +281,7 @@ export default function Platform() {
         const isTransferable = projectInfo[5];
         
         if (owner.toLowerCase() === address.toLowerCase()) {
-          setProjectId(foundProjectId);
+          setProjectId(existingId);
           setProjectAdmin(owner);
           setTransferable(isTransferable);
           setIsExistingProject(true);
@@ -274,69 +290,37 @@ export default function Platform() {
           setSlugCheckError(`This slug is owned by ${owner.slice(0, 6)}...${owner.slice(-4)}. Please use a different slug or switch wallets.`);
         }
       }
-      
-      if (foundProjectId === null) {
-        // Project doesn't exist yet — check if slug is reserved
-        try {
-          const reservedAddr = await publicClient.readContract({
-            address: RWAID_V2_ADDRESS,
-            abi: rwaIdV2Abi,
-            functionName: "reservedTo",
-            args: [computedSlugHash],
-          }) as string;
+      // 2. Check if slug is reserved
+      else if (reservedAddr !== null && expiry !== null) {
+        const zeroAddress = "0x0000000000000000000000000000000000000000";
+        const now = Math.floor(Date.now() / 1000);
+        const isReserved = reservedAddr !== zeroAddress && now < Number(expiry);
 
-          const expiry = await publicClient.readContract({
-            address: RWAID_V2_ADDRESS,
-            abi: rwaIdV2Abi,
-            functionName: "reservationExpiry",
-            args: [computedSlugHash],
-          }) as bigint;
-
-          const zeroAddress = "0x0000000000000000000000000000000000000000";
-          const now = Math.floor(Date.now() / 1000);
-          const isReserved = reservedAddr !== zeroAddress && now < Number(expiry);
-
-          if (isReserved && reservedAddr.toLowerCase() !== address.toLowerCase()) {
-            setSlugCheckError(`This project slug has been reserved. Please choose a different slug.`);
-            setProjectId(null);
-            setProjectAdmin(null);
-          } else if (isReserved && reservedAddr.toLowerCase() === address.toLowerCase()) {
-            setIsExistingProject(false);
-            setSlugVerified(true);
-            setProjectId(null);
-            setProjectAdmin(null);
-            setEstimatedGas(null);
-            setGasPrice(null);
-            setGasError(null);
-          } else {
-            setIsExistingProject(false);
-            setSlugVerified(true);
-            setProjectId(null);
-            setProjectAdmin(null);
-            setEstimatedGas(null);
-            setGasPrice(null);
-            setGasError(null);
-          }
-        } catch (reservationError) {
-          console.error("Reservation check failed, slug may be reserved:", reservationError);
-          setSlugCheckError("This project slug may be reserved. Please try again or choose a different slug.");
+        if (isReserved && reservedAddr.toLowerCase() !== address.toLowerCase()) {
+          setSlugCheckError("This project slug has been reserved. Please try another name.");
           setProjectId(null);
           setProjectAdmin(null);
+        } else {
+          setIsExistingProject(false);
+          setSlugVerified(true);
+          setProjectId(null);
+          setProjectAdmin(null);
+          setEstimatedGas(null);
+          setGasPrice(null);
+          setGasError(null);
         }
+      }
+      // 3. All calls failed — cannot determine status
+      else {
+        console.error("All slug checks failed");
+        setSlugCheckError("Unable to verify slug availability. Please wait a moment and try again.");
+        setProjectId(null);
+        setProjectAdmin(null);
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Slug check failed:", errorMessage);
-      
-      if (errorMessage.includes("fetch") || errorMessage.includes("network") || errorMessage.includes("Failed to fetch") || errorMessage.includes("HTTP request failed")) {
-        setSlugCheckError("Unable to verify slug availability. Please wait a moment and try again.");
-      } else if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
-        setSlugCheckError("Too many requests. Please wait a moment and try again.");
-      } else if (errorMessage.includes("timeout")) {
-        setSlugCheckError("Request timed out. Please try again.");
-      } else {
-        setSlugCheckError(`Check failed: ${errorMessage.slice(0, 100)}`);
-      }
+      setSlugCheckError("Unable to verify slug availability. Please wait a moment and try again.");
     } finally {
       setIsCheckingSlug(false);
     }
@@ -437,39 +421,51 @@ export default function Platform() {
         const normalizedSlug = slug.trim().toLowerCase();
         const computedSlugHash = keccak256(toBytes(normalizedSlug));
 
-        const existingProjectId = await publicClient.readContract({
-          address: RWAID_V2_ADDRESS,
-          abi: rwaIdV2Abi,
-          functionName: "projectIdBySlugHash",
-          args: [computedSlugHash],
-        }) as bigint;
+        const [existingIdResult, reservedAddrResult, expiryResult] = await Promise.allSettled([
+          publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "projectIdBySlugHash",
+            args: [computedSlugHash],
+          }),
+          publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "reservedTo",
+            args: [computedSlugHash],
+          }),
+          publicClient.readContract({
+            address: RWAID_V2_ADDRESS,
+            abi: rwaIdV2Abi,
+            functionName: "reservationExpiry",
+            args: [computedSlugHash],
+          }),
+        ]);
 
-        if (existingProjectId > BigInt(0)) {
+        const existingId = existingIdResult.status === "fulfilled" ? existingIdResult.value as bigint : null;
+        const reservedAddr = reservedAddrResult.status === "fulfilled" ? reservedAddrResult.value as string : null;
+        const expiry = expiryResult.status === "fulfilled" ? expiryResult.value as bigint : null;
+
+        if (existingId !== null && existingId > BigInt(0)) {
           setSlugAvailability("taken");
           return;
         }
 
-        const reservedAddr = await publicClient.readContract({
-          address: RWAID_V2_ADDRESS,
-          abi: rwaIdV2Abi,
-          functionName: "reservedTo",
-          args: [computedSlugHash],
-        }) as string;
+        if (reservedAddr !== null && expiry !== null) {
+          const zeroAddress = "0x0000000000000000000000000000000000000000";
+          const isReserved = reservedAddr !== zeroAddress 
+            && Date.now() / 1000 < Number(expiry) 
+            && reservedAddr.toLowerCase() !== address?.toLowerCase();
 
-        const expiry = await publicClient.readContract({
-          address: RWAID_V2_ADDRESS,
-          abi: rwaIdV2Abi,
-          functionName: "reservationExpiry",
-          args: [computedSlugHash],
-        }) as bigint;
+          if (isReserved) {
+            setSlugAvailability("reserved");
+            return;
+          }
+        }
 
-        const zeroAddress = "0x0000000000000000000000000000000000000000";
-        const isReserved = reservedAddr !== zeroAddress 
-          && Date.now() / 1000 < Number(expiry) 
-          && reservedAddr.toLowerCase() !== address?.toLowerCase();
-
-        if (isReserved) {
-          setSlugAvailability("reserved");
+        if (existingId === null && reservedAddr === null) {
+          setSlugAvailability("error");
+          setSlugAvailError("Unable to verify availability. Please try again.");
           return;
         }
 
@@ -477,7 +473,7 @@ export default function Platform() {
       } catch (error) {
         console.error("Slug availability check failed:", error);
         setSlugAvailability("error");
-        setSlugAvailError(error instanceof Error ? error.message.slice(0, 100) : "Check failed");
+        setSlugAvailError("Unable to verify availability. Please try again.");
       }
     }, 500);
 
@@ -1060,7 +1056,7 @@ export default function Platform() {
                 {slug && slugAvailability === "reserved" && (
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm" data-testid="slug-status-reserved">
                     <AlertTriangle className="h-3.5 w-3.5" />
-                    <span>This namespace is reserved for a partner platform</span>
+                    <span>This project slug has been reserved. Please try another name.</span>
                   </div>
                 )}
                 {slug && slugAvailability === "taken" && (
