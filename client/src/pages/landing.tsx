@@ -134,7 +134,7 @@ export default function Landing() {
                   </div>
                   <h3 className="font-heading text-xl font-semibold">Deploy at Scale</h3>
                   <p className="text-muted-foreground">
-                    Set the Merkle root on-chain and enable millions of users to claim
+                    Set the Merkle root on-chain and enable millions of users to claim via claim URL
                   </p>
                 </CardContent>
               </Card>
