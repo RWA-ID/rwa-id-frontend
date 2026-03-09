@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Fingerprint } from "lucide-react";
+import { Fingerprint, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WalletButton } from "@/components/wallet-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -25,6 +25,16 @@ export function NavBar({ showWallet = false }: { showWallet?: boolean }) {
                 Platform Console
               </Button>
             </Link>
+            <a href="https://dashboard.rwa-id.com" target="_blank" rel="noopener noreferrer">
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="link-dashboard-nav"
+              >
+                Identity Dashboard
+                <ExternalLink className="ml-1.5 h-3 w-3" />
+              </Button>
+            </a>
             {showWallet && <WalletButton />}
             <ThemeToggle />
           </div>
