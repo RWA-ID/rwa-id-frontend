@@ -111,8 +111,7 @@ export default function Landing() {
                   <span className="block text-primary">For Real World Assets And Client Wallets</span>
                 </h1>
                 <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl">
-                  Create namespace registries and issue verifiable, soulbound identities
-                  at scale. Supports millions of allowlisted claims via Merkle proof verification.
+                  Issue human-readable, ENS-compatible on-chain identities to verified clients — no custody, no personal data, no changes to your existing compliance stack.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
                   <a href="https://dashboard.rwa-id.com" target="_blank" rel="noopener noreferrer">
@@ -147,6 +146,25 @@ export default function Landing() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-6 border-b bg-muted/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm">
+              {[
+                { label: "Live on Ethereum Mainnet", highlight: true },
+                { label: "68 Contract Tests Passing", highlight: false },
+                { label: "25 Top RWA Slugs Reserved", highlight: false },
+                { label: "CCIP-Read Gateway Active", highlight: false },
+                { label: "ENS Wildcard Resolver Live", highlight: false },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${item.highlight ? "bg-green-500 animate-pulse" : "bg-primary/60"}`} />
+                  <span className={item.highlight ? "font-semibold text-foreground" : "text-muted-foreground"}>{item.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </section>
@@ -189,12 +207,51 @@ export default function Landing() {
                   <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto">
                     <Zap className="w-7 h-7 text-primary" />
                   </div>
-                  <h3 className="font-heading text-xl font-semibold">Deploy at Scale</h3>
+                  <h3 className="font-heading text-xl font-semibold">Earn Revenue</h3>
                   <p className="text-muted-foreground">
-                    Set the Merkle root on-chain and enable millions of users to claim via claim URL
+                    Set a claim fee in USDC — 70% goes directly to your treasury on every claim, automatically
                   </p>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="mt-10 rounded-2xl border bg-card p-6 sm:p-8">
+              <div className="grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                  <h3 className="font-heading text-xl font-semibold mb-2">Revenue Sharing Model</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Every identity claim generates revenue split 70/30 on-chain between your treasury and the protocol. A $0.50 minimum is enforced by the contract — even if you set no fee.
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Shield className="w-4 h-4 text-primary" />
+                    <span>Enforced on-chain — no trust required</span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left pb-2 font-medium text-muted-foreground">Claim Fee Set</th>
+                        <th className="text-right pb-2 font-medium text-muted-foreground">Your Treasury (70%)</th>
+                        <th className="text-right pb-2 font-medium text-muted-foreground">Protocol (30%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {[
+                        { fee: "None (minimum applied)", platform: "$0.35", protocol: "$0.15" },
+                        { fee: "$1.00", platform: "$0.70", protocol: "$0.30" },
+                        { fee: "$5.00", platform: "$3.50", protocol: "$1.50" },
+                      ].map((row) => (
+                        <tr key={row.fee}>
+                          <td className="py-2.5 text-foreground">{row.fee}</td>
+                          <td className="py-2.5 text-right font-medium text-green-600 dark:text-green-400">{row.platform}</td>
+                          <td className="py-2.5 text-right text-muted-foreground">{row.protocol}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
 
             <div className="mt-12 grid lg:grid-cols-2 gap-8 items-center">
@@ -323,6 +380,76 @@ export default function Landing() {
         </section>
 
         <section className="py-16 sm:py-24 bg-muted/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
+                Platform Dashboard
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Full project management from a single interface — no backend, no indexer, all reads go directly to the contract
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                {
+                  title: "Live Project Stats",
+                  desc: "View total claimed identities, total revenue earned, current claim fee, treasury address, and active/paused status in real time.",
+                },
+                {
+                  title: "Allowlist Management",
+                  desc: "Upload a CSV or add entries manually. Load an existing tree from IPFS to extend it without losing any previous entries.",
+                },
+                {
+                  title: "Update Claim Fee",
+                  desc: "Adjust the per-claim USDC fee at any time. The contract enforces the $0.50 protocol minimum automatically.",
+                },
+                {
+                  title: "Treasury Control",
+                  desc: "Update the wallet address that receives your 70% revenue share from each claim with a single on-chain transaction.",
+                },
+                {
+                  title: "Transferability Override",
+                  desc: "Set soulbound or transferable at the project level — and override it on individual tokens if needed.",
+                },
+                {
+                  title: "Identity Lookup & Revoke",
+                  desc: "Search any claimed identity by name, see its status on-chain, and permanently revoke it to burn the token and blacklist the name.",
+                },
+                {
+                  title: "Pause & Unpause",
+                  desc: "Freeze new claims at any time while keeping all existing identities intact. Unpause when ready to re-open.",
+                },
+                {
+                  title: "Transfer Ownership",
+                  desc: "Hand off project admin rights to any wallet address — the new owner gains full control immediately.",
+                },
+                {
+                  title: "Shareable Claim URLs",
+                  desc: "After uploading an allowlist, a unique claim URL is generated automatically to share with your clients.",
+                },
+              ].map((feature) => (
+                <div key={feature.title} className="bg-card rounded-xl border p-5 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                    <h3 className="font-heading font-semibold text-sm">{feature.title}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-8 text-center">
+              <a href="https://dashboard.rwa-id.com" target="_blank" rel="noopener noreferrer">
+                <Button className="rounded-full px-8" data-testid="button-dashboard-cta">
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Open Platform Dashboard
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-24">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <h2 className="font-heading text-3xl sm:text-4xl font-bold text-center mb-8">
               How It Works
@@ -397,6 +524,22 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                   </p>
                 </AccordionContent>
               </AccordionItem>
+              <AccordionItem value="revenue" className="bg-card rounded-xl border px-6">
+                <AccordionTrigger className="text-left font-semibold" data-testid="accordion-revenue">
+                  How Does the Revenue Model Work?
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground pb-4">
+                  <p className="mb-2">
+                    Every identity claim pays a fee in USDC that is split 70/30 on-chain: 70% goes directly to the platform's treasury wallet, and 30% goes to the RWA ID protocol.
+                  </p>
+                  <p className="mb-2">
+                    Platforms set their own claim fee. A $0.50 minimum is enforced at the contract level — it cannot be bypassed. If a platform sets no fee, the contract applies the $0.50 minimum and distributes it with the same 70/30 split ($0.35 to the platform, $0.15 to the protocol).
+                  </p>
+                  <p>
+                    The split is automatic and trustless — no manual payouts, no intermediaries.
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
             </Accordion>
           </div>
         </section>
@@ -466,6 +609,51 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                 <img src="https://chain.link/badge-cross-chain-white" alt="CCIP secured with Chainlink" className="h-12 dark:block hidden" />
                 <img src="https://chain.link/badge-cross-chain-black" alt="CCIP secured with Chainlink" className="h-12 dark:hidden block" />
               </a>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-24">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
+                Infrastructure Only
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                RWA ID operates with minimal regulatory surface area. We provide the rails — your existing compliance stack stays untouched.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <p className="text-sm font-semibold uppercase tracking-wider text-primary mb-3">What RWA ID Does</p>
+                {[
+                  "Provides human-readable identity references",
+                  "Enables name resolution across wallets and dApps",
+                  "Facilitates on-chain identity registration",
+                  "Supports platform operations and revenue sharing",
+                ].map((item) => (
+                  <div key={item} className="flex items-start gap-3">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-foreground">{item}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-3">
+                <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">What RWA ID Does NOT Do</p>
+                {[
+                  "Collect or store personal data",
+                  "Perform KYC or identity verification",
+                  "Assert or validate identity claims",
+                  "Custody funds or assets",
+                ].map((item) => (
+                  <div key={item} className="flex items-start gap-3">
+                    <div className="w-4 h-4 flex-shrink-0 mt-0.5 flex items-center justify-center">
+                      <div className="w-3 h-0.5 bg-muted-foreground/40 rounded" />
+                    </div>
+                    <span className="text-sm text-muted-foreground">{item}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
