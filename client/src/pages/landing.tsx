@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/accordion";
 import { NavBar } from "@/components/nav-bar";
 import globeImage from "@assets/IMG_5762_1774276839288.JPG";
+import networkImage from "@assets/IMG_5763_1774277315277.JPG";
 import {
   Building2,
   Shield,
@@ -42,7 +43,15 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <img
+          src={networkImage}
+          alt=""
+          className="w-full h-full object-cover opacity-[0.06] blur-[2px] scale-105"
+        />
+      </div>
+      <div className="relative z-10">
       <NavBar />
 
       <main>
@@ -538,6 +547,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }
