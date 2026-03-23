@@ -141,7 +141,7 @@ export default function Landing() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span>Soulbound on Ethereum</span>
+                      <span>Soulbound or Transferable on Ethereum</span>
                     </div>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export default function Landing() {
                   <div className="grid grid-cols-2 gap-3 text-center">
                     <div className="bg-muted/50 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground mb-0.5">Type</p>
-                      <p className="text-xs font-medium">Soulbound</p>
+                      <p className="text-xs font-medium">Configurable</p>
                     </div>
                     <div className="bg-muted/50 rounded-lg px-3 py-2">
                       <p className="text-[10px] text-muted-foreground mb-0.5">Network</p>
@@ -370,7 +370,7 @@ export default function Landing() {
                   <div>
                     <p className="font-heading text-xl font-semibold mb-2">How Do I Claim?</p>
                     <p className="text-muted-foreground">
-                      Your RWA platform will provide you with a claim link once your identity has been assigned. Simply open the link, connect your wallet, and claim your soulbound identity token.
+                      Your RWA platform will provide you with a claim link once your identity has been assigned. Simply open the link, connect your wallet, and claim your on-chain identity token — soulbound or transferable depending on your platform's configuration.
                     </p>
                   </div>
                 </div>
@@ -520,7 +520,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                     After a platform uploads its allowlist and sets the Merkle root on-chain, a unique claim URL is generated. The platform shares this URL with its users.
                   </p>
                   <p>
-                    Users simply open the link, connect their wallet, and their identity is automatically detected from the proof file stored on IPFS. If a claim fee is set, they approve the USDC spend and then claim their soulbound identity token in a single flow.
+                    Users simply open the link, connect their wallet, and their identity is automatically detected from the proof file stored on IPFS. If a claim fee is set, they approve the USDC spend and then claim their identity token in a single flow — soulbound or transferable as configured by the platform.
                   </p>
                 </AccordionContent>
               </AccordionItem>
