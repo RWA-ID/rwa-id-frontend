@@ -21,7 +21,19 @@ import {
   Fingerprint,
   Zap,
   FileText,
+  Send,
+  Mail,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SiGithub, SiX, SiEthereum, SiPolygon } from "react-icons/si";
 import { useState } from "react";
 import lineaLogo from "@assets/Wordmark_Blue_BG_1768681663242.png";
@@ -31,6 +43,8 @@ const CONTRACT_ADDRESS = "0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2";
 
 export default function Landing() {
   const [copied, setCopied] = useState(false);
+  const [contactResult, setContactResult] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [inquiryType, setInquiryType] = useState("");
 
   const copyAddress = () => {
     navigator.clipboard.writeText(CONTRACT_ADDRESS);
@@ -40,6 +54,26 @@ export default function Landing() {
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 10)}...${addr.slice(-8)}`;
+  };
+
+  const handleContactSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setContactResult("sending");
+    const formData = new FormData(event.currentTarget);
+    formData.append("access_key", "c4621259-2059-4c10-8cb4-d6e8cba3d236");
+    formData.set("subject", `RWA-ID Inquiry: ${inquiryType || "General"}`);
+    const response = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json();
+    if (data.success) {
+      setContactResult("success");
+      (event.target as HTMLFormElement).reset();
+      setInquiryType("");
+    } else {
+      setContactResult("error");
+    }
   };
 
   return (
@@ -81,12 +115,18 @@ export default function Landing() {
                   at scale. Supports millions of allowlisted claims via Merkle proof verification.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
-                  <Link href="/console">
-                    <Button size="lg" className="rounded-full px-8" data-testid="button-platform-console">
+                  <a href="https://dashboard.rwa-id.com" target="_blank" rel="noopener noreferrer">
+                    <Button size="lg" className="rounded-full px-8" data-testid="button-launch-dashboard">
                       <Building2 className="mr-2 h-5 w-5" />
-                      Platform Console
+                      Launch Dashboard
+                      <ExternalLink className="ml-2 h-4 w-4" />
                     </Button>
-                  </Link>
+                  </a>
+                  <a href="#contact">
+                    <Button size="lg" variant="outline" className="rounded-full px-8" data-testid="button-contact">
+                      Get in Touch
+                    </Button>
+                  </a>
                 </div>
               </div>
               <div className="lg:col-span-2 relative">
@@ -427,6 +467,140 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                 <img src="https://chain.link/badge-cross-chain-black" alt="CCIP secured with Chainlink" className="h-12 dark:hidden block" />
               </a>
             </div>
+          </div>
+        </section>
+
+        <section id="contact" className="py-16 sm:py-24 bg-muted/30">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-sm font-medium mb-4">
+                <Mail className="w-4 h-4 text-primary" />
+                <span>Work With Us</span>
+              </div>
+              <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
+                Get in Touch
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Interested in integrating RWA-ID into your platform? We'd love to hear from you — whether it's a partnership, demo request, collaboration, or just a question.
+              </p>
+            </div>
+
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-6 sm:p-8">
+                {contactResult === "success" ? (
+                  <div className="text-center py-12 space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
+                      <CheckCircle className="w-8 h-8 text-green-500" />
+                    </div>
+                    <h3 className="font-heading text-xl font-semibold">Message Sent!</h3>
+                    <p className="text-muted-foreground">Thanks for reaching out. We'll get back to you at the email you provided.</p>
+                    <Button variant="outline" onClick={() => setContactResult("idle")} data-testid="button-send-another">
+                      Send another message
+                    </Button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleContactSubmit} className="space-y-6">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="contact-name">Name <span className="text-destructive">*</span></Label>
+                        <Input
+                          id="contact-name"
+                          name="name"
+                          placeholder="Jane Smith"
+                          required
+                          data-testid="input-contact-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact-email">Email <span className="text-destructive">*</span></Label>
+                        <Input
+                          id="contact-email"
+                          name="email"
+                          type="email"
+                          placeholder="jane@yourplatform.com"
+                          required
+                          data-testid="input-contact-email"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="contact-org">Organization</Label>
+                        <Input
+                          id="contact-org"
+                          name="organization"
+                          placeholder="Your platform or company"
+                          data-testid="input-contact-org"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact-type">Inquiry Type <span className="text-destructive">*</span></Label>
+                        <Select
+                          value={inquiryType}
+                          onValueChange={setInquiryType}
+                          required
+                        >
+                          <SelectTrigger id="contact-type" data-testid="select-contact-type">
+                            <SelectValue placeholder="Select inquiry type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Partnership">Partnership</SelectItem>
+                            <SelectItem value="Demo Request">Demo Request</SelectItem>
+                            <SelectItem value="Collaboration">Collaboration</SelectItem>
+                            <SelectItem value="Integration Support">Integration Support</SelectItem>
+                            <SelectItem value="General Question">General Question</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <input type="hidden" name="inquiry_type" value={inquiryType} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-message">Message <span className="text-destructive">*</span></Label>
+                      <Textarea
+                        id="contact-message"
+                        name="message"
+                        placeholder="Tell us about your platform and how you'd like to work together..."
+                        rows={5}
+                        required
+                        data-testid="textarea-contact-message"
+                      />
+                    </div>
+
+                    {contactResult === "error" && (
+                      <p className="text-sm text-destructive" data-testid="text-contact-error">
+                        Something went wrong. Please try again or email us directly at partner@rwa-id.com
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <p className="text-sm text-muted-foreground">
+                        Or email us directly at{" "}
+                        <a href="mailto:partner@rwa-id.com" className="text-primary hover:underline">
+                          partner@rwa-id.com
+                        </a>
+                      </p>
+                      <Button
+                        type="submit"
+                        disabled={contactResult === "sending" || !inquiryType}
+                        className="rounded-full px-8"
+                        data-testid="button-submit-contact"
+                      >
+                        {contactResult === "sending" ? (
+                          "Sending..."
+                        ) : (
+                          <>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send Message
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </section>
 
