@@ -8,6 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { NavBar } from "@/components/nav-bar";
+import globeImage from "@assets/IMG_5762_1774276839288.JPG";
 import {
   Building2,
   Shield,
@@ -46,6 +47,13 @@ export default function Landing() {
 
       <main>
         <section className="relative min-h-[calc(100vh-4rem)] flex items-center py-12 sm:py-16 lg:py-24 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none">
+            <img
+              src={globeImage}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover opacity-10 blur-sm scale-105"
+            />
+          </div>
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 pointer-events-none" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-center">
