@@ -48,7 +48,7 @@ export default function Landing() {
         <img
           src={networkImage}
           alt=""
-          className="w-full h-full object-cover opacity-[0.06] blur-[2px] scale-105"
+          className="w-full h-full object-cover opacity-[0.18] scale-105"
         />
       </div>
       <div className="relative z-10">
