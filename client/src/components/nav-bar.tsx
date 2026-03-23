@@ -1,12 +1,9 @@
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Fingerprint, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WalletButton } from "@/components/wallet-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export function NavBar({ showWallet = false }: { showWallet?: boolean }) {
-  const [location] = useLocation();
-
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -27,7 +24,6 @@ export function NavBar({ showWallet = false }: { showWallet?: boolean }) {
               </Button>
             </a>
             {showWallet && <WalletButton />}
-            <ThemeToggle />
           </div>
         </div>
       </div>
