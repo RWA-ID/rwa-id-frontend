@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -15,7 +16,6 @@ import {
   ExternalLink,
   Copy,
   Layers,
-  Fingerprint,
   Zap,
   FileText,
   Send,
@@ -36,7 +36,9 @@ import { useState } from "react";
 import lineaLogo from "@assets/Wordmark_Blue_BG_1768681663242.png";
 import uniswapLogo from "@assets/Uniswap_icon_pink_1771203542816.png";
 
-const CONTRACT_ADDRESS = "0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2";
+// RWAIDv3 — the live registry. v2 (0xD0B565C7…) is superseded
+// and names claimed against it no longer resolve.
+const CONTRACT_ADDRESS = "0x6413e9E6A0D4e05557463A66C34E18192324A2C7";
 
 export default function Landing() {
   const [copied, setCopied] = useState(false);
@@ -78,14 +80,14 @@ export default function Landing() {
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: `radial-gradient(circle, hsl(var(--primary) / 0.18) 1px, transparent 1px)`,
+          backgroundImage: `radial-gradient(circle, hsl(var(--foreground) / 0.06) 1px, transparent 1px)`,
           backgroundSize: "28px 28px",
         }}
       />
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          background: "radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.07) 0%, transparent 70%)",
+          background: "none",
         }}
       />
 
@@ -100,7 +102,7 @@ export default function Landing() {
                 className="absolute inset-0"
                 style={{
                   background:
-                    "radial-gradient(ellipse 80% 60% at 50% 30%, hsl(var(--primary) / 0.12) 0%, transparent 70%)",
+                    "none",
                 }}
               />
             </div>
@@ -117,7 +119,7 @@ export default function Landing() {
                 <span
                   className="block"
                   style={{
-                    background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 50%, #a78bfa 100%)",
+                    background: "hsl(var(--primary))",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                     backgroundClip: "text",
@@ -153,7 +155,7 @@ export default function Landing() {
                 <div
                   className="absolute -inset-6 rounded-3xl pointer-events-none"
                   style={{
-                    background: "radial-gradient(ellipse at center, hsl(var(--primary) / 0.25) 0%, transparent 70%)",
+                    background: "none",
                     filter: "blur(12px)",
                   }}
                 />
@@ -164,9 +166,7 @@ export default function Landing() {
                     boxShadow: "0 0 0 1px hsl(var(--primary) / 0.15), 0 20px 60px -12px hsl(var(--primary) / 0.3)",
                   }}
                 >
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto ring-2 ring-primary/20">
-                    <Fingerprint className="w-10 h-10 text-primary" />
-                  </div>
+                  <BrandMark size={72} tone="accent" className="mx-auto" />
                   <div className="text-center">
                     <p className="font-mono text-sm text-muted-foreground">yourproject.rwa-id.eth</p>
                     <p className="font-heading text-xl font-semibold mt-2">Verified Identity</p>
@@ -219,7 +219,7 @@ export default function Landing() {
                   For{" "}
                   <span
                     style={{
-                      background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                      background: "hsl(var(--primary))",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -340,7 +340,7 @@ export default function Landing() {
                   <div
                     className="absolute -inset-4 rounded-3xl pointer-events-none"
                     style={{
-                      background: "radial-gradient(ellipse at center, hsl(var(--primary) / 0.18) 0%, transparent 70%)",
+                      background: "none",
                       filter: "blur(8px)",
                     }}
                   />
@@ -352,9 +352,7 @@ export default function Landing() {
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 ring-1 ring-primary/20">
-                        <Fingerprint className="w-6 h-6 text-primary" />
-                      </div>
+                      <BrandMark size={48} tone="accent" />
                       <div>
                         <p className="font-heading font-semibold">Joe Smith</p>
                         <p className="text-xs text-muted-foreground font-mono">0x7a3b...9f2d</p>
@@ -404,7 +402,7 @@ export default function Landing() {
                     For{" "}
                     <span
                       style={{
-                        background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                        background: "hsl(var(--primary))",
                         WebkitBackgroundClip: "text",
                         WebkitTextFillColor: "transparent",
                         backgroundClip: "text",
@@ -440,9 +438,7 @@ export default function Landing() {
                   }}
                 >
                   <div className="space-y-6 text-center">
-                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto ring-2 ring-primary/20">
-                      <Fingerprint className="w-10 h-10 text-primary" />
-                    </div>
+                    <BrandMark size={72} tone="accent" className="mx-auto" />
                     <div>
                       <p className="font-heading text-xl font-semibold mb-2">How Do I Claim?</p>
                       <p className="text-muted-foreground">
@@ -463,7 +459,7 @@ export default function Landing() {
                   Platform{" "}
                   <span
                     style={{
-                      background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                      background: "hsl(var(--primary))",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -550,7 +546,7 @@ export default function Landing() {
                 How It{" "}
                 <span
                   style={{
-                    background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                    background: "hsl(var(--primary))",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                     backgroundClip: "text",
@@ -681,7 +677,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                   Cross-Chain Name{" "}
                   <span
                     style={{
-                      background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                      background: "hsl(var(--primary))",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -769,7 +765,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                   Infrastructure{" "}
                   <span
                     style={{
-                      background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                      background: "hsl(var(--primary))",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -829,7 +825,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
                   Get in{" "}
                   <span
                     style={{
-                      background: "linear-gradient(135deg, hsl(var(--primary)) 0%, #818cf8 100%)",
+                      background: "hsl(var(--primary))",
                       WebkitBackgroundClip: "text",
                       WebkitTextFillColor: "transparent",
                       backgroundClip: "text",
@@ -1035,7 +1031,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}
             <div className="flex flex-col gap-6">
               <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <Fingerprint className="h-6 w-6 text-primary" />
+                  <BrandMark size={22} />
                   <span className="font-heading font-bold text-base text-foreground tracking-tight">RWA-ID</span>
                 </div>
                 <p className="max-w-xs text-center sm:text-left">Decentralized Identity Registry for Real World Assets</p>

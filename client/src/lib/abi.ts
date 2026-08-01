@@ -1,4 +1,6 @@
-export const RWAID_V2_ADDRESS = "0xD0B565C7134bDB16Fc3b8A9Cb5fdA003C37930c2" as const;
+export const RWAID_V3_ADDRESS = "0x6413e9E6A0D4e05557463A66C34E18192324A2C7" as const;
+/** @deprecated superseded by v3; kept so old imports fail loudly rather than silently. */
+export const RWAID_V2_ADDRESS = RWAID_V3_ADDRESS;
 export const USDC_ADDRESS     = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const;
 
 export const rwaIdV2Abi = [
