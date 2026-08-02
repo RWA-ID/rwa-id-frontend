@@ -7,18 +7,18 @@ const CONTRACT_ADDRESS = "0x6413e9E6A0D4e05557463A66C34E18192324A2C7";
 const EXPLORER_URL = `https://etherscan.io/address/${CONTRACT_ADDRESS}#code`;
 const DASHBOARD_URL = "https://dashboard.rwa-id.com";
 const CONTACT_EMAIL = "partner@rwa-id.com";
-const X_URL = "https://x.com/rwa_id";
+const X_URL    = "https://x.com/rwa_ideth";
+const X_HANDLE = "@rwa_ideth";
 const WEB3FORMS_KEY = "c4621259-2059-4c10-8cb4-d6e8cba3d236";
 
-/* The six chains a name answers on. `file` is the asset in /public/brand/chains.
-   Linea is a wordmark rather than a square glyph — the tile letterboxes it. */
+/* The six chains a name answers on. `file` is the asset in /public/brand/chains. */
 const CHAINS = [
   { name: "Ethereum", file: "ethereum.svg" },
   { name: "Base", file: "base.svg" },
   { name: "Arbitrum", file: "arbitrum-one.svg" },
   { name: "Optimism", file: "optimism.svg" },
   { name: "Polygon", file: "polygon.svg" },
-  { name: "Linea", file: "linea.png" },
+  { name: "Linea", file: "linea.svg" },
 ];
 
 const WALLETS = [
@@ -470,7 +470,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}</pre>
         </div>
 
         <div className="mk-two">
-          <div className="mk-panel">
+          <div className="mk-panel mk-panel-logos">
             <h3 className="mk-panel-title">Supported blockchains</h3>
             <div className="logo-row">
               {CHAINS.map((c) => (
@@ -479,7 +479,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}</pre>
             </div>
           </div>
 
-          <div className="mk-panel">
+          <div className="mk-panel mk-panel-logos">
             <h3 className="mk-panel-title">Native wallet support</h3>
             <div className="logo-row">
               {WALLETS.map((w) => (
@@ -664,7 +664,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}</pre>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
-              @rwa_id
+              {X_HANDLE}
             </a>
           </div>
 
@@ -689,7 +689,7 @@ alice,0xabcdef1234567890abcdef1234567890abcdef12`}</pre>
               <div className="l-footer-col-head">Company</div>
               <a href="#faq">How it works</a>
               <a href="#contact">Book a walkthrough</a>
-              <a href={X_URL} target="_blank" rel="noreferrer">@rwa_id on X</a>
+              <a href={X_URL} target="_blank" rel="noreferrer">{X_HANDLE} on X</a>
               <a href={`mailto:${CONTACT_EMAIL}`} data-testid="link-contact-email">{CONTACT_EMAIL}</a>
             </div>
           </div>
