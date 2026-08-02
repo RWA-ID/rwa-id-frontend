@@ -1,17 +1,11 @@
 import { Switch, Route } from "wouter";
 import { useEffect } from "react";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
-import { WagmiProvider } from "wagmi";
-import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { wagmiConfig } from "./lib/wagmi-config";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Privacy from "@/pages/privacy";
-import "@rainbow-me/rainbowkit/styles.css";
 
 const DASHBOARD_URL = "https://dashboard.rwa-id.com";
 
@@ -53,18 +47,12 @@ function Router() {
 
 function App() {
   return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <ThemeProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Router />
-            </TooltipProvider>
-          </ThemeProvider>
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
 

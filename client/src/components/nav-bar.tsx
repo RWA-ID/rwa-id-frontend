@@ -2,9 +2,8 @@ import { Link } from "wouter";
 import { ExternalLink } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
-import { WalletButton } from "@/components/wallet-button";
 
-export function NavBar({ showWallet = false }: { showWallet?: boolean }) {
+export function NavBar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +23,6 @@ export function NavBar({ showWallet = false }: { showWallet?: boolean }) {
                 <ExternalLink className="ml-1.5 h-3 w-3" />
               </Button>
             </a>
-            {showWallet && <WalletButton />}
           </div>
         </div>
       </div>

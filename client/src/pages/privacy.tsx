@@ -1,6 +1,5 @@
 import { Link } from "wouter";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Fingerprint } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function Privacy() {
   return (
@@ -9,10 +8,9 @@ export default function Privacy() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 h-16">
             <Link href="/" className="flex items-center gap-2">
-              <Fingerprint className="h-8 w-8 text-primary" />
+              <BrandMark size={30} />
               <span className="font-heading text-xl font-bold">RWA-ID</span>
             </Link>
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -39,7 +37,8 @@ export default function Privacy() {
                 We collect minimal information necessary to provide our services:
               </p>
               <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-                <li><strong>Wallet Addresses:</strong> Public blockchain addresses you connect to our platform.</li>
+                <li><strong>Contact Details:</strong> The name, email, organization and message you submit through the contact form on this site.</li>
+                <li><strong>Wallet Addresses:</strong> Public blockchain addresses, collected only in the RWA-ID dashboard — not on this website.</li>
                 <li><strong>Identity Names:</strong> Names associated with identity claims you create or receive.</li>
                 <li><strong>Transaction Data:</strong> On-chain transaction hashes related to identity minting.</li>
               </ul>
@@ -87,7 +86,7 @@ export default function Privacy() {
             <section className="space-y-4">
               <h2 className="font-heading text-xl font-semibold">7. Third-Party Services</h2>
               <p className="text-muted-foreground">
-                Our platform integrates with third-party wallet providers (via RainbowKit) to enable wallet connections. These services have their own privacy policies, and we encourage you to review them.
+                This website does not connect to your wallet. Wallet connections happen in the RWA-ID dashboard, a separate application with its own privacy policy, which we encourage you to review.
               </p>
             </section>
 
@@ -125,7 +124,7 @@ export default function Privacy() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <Fingerprint className="h-5 w-5 text-primary" />
+              <BrandMark size={20} />
               <span className="font-heading font-semibold">RWA-ID</span>
             </div>
             <p>Decentralized Identity Registry for Real World Assets</p>
