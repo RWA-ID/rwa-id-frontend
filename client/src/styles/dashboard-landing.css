@@ -160,7 +160,10 @@
   width: 5.2cqw; height: 5.2cqw; border-radius: 50%; flex: none;
   background: var(--avatar);
   animation: halo 3.6s ease-out infinite;
+  overflow: hidden;
+  display: flex;
 }
+.phone-avatar img { width: 100%; height: 100%; display: block }
 .phone-identity-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .5cqw }
 .phone-name { font: 600 2.3cqw/1.1 var(--f-sans); letter-spacing: -.025em; color: #F4F4F2; white-space: nowrap }
 .phone-addr { font: 400 1.5cqw/1.1 var(--f-mono); color: rgba(244,244,242,.52) }

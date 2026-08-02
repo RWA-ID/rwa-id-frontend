@@ -30,11 +30,41 @@ const WALLETS = [
   { name: "Safe", file: "safe.svg" },
 ];
 
-const TRUST = [
-  "68 contract tests passing",
-  "25 top RWA slugs reserved",
-  "CCIP-Read gateway active",
-  "ENS wildcard resolver live",
+/* The strip under the hero. `stat` promotes a figure above the title; `live`
+   prefixes the pulsing status dot. `tone` picks the icon well's tint. */
+const TRUST: {
+  icon: TrustIcon;
+  tone: "good" | "accent";
+  stat?: string;
+  live?: boolean;
+  title: string;
+  note: string;
+}[] = [
+  {
+    icon: "globe", tone: "good", live: true,
+    title: "Live on Ethereum Mainnet",
+    note: "Production-ready and resolving in real time.",
+  },
+  {
+    icon: "shield", tone: "accent", stat: "68",
+    title: "Contract tests passing",
+    note: "Robust, secure, and battle-tested.",
+  },
+  {
+    icon: "bookmark", tone: "accent", stat: "25",
+    title: "Top RWA slugs reserved",
+    note: "Premium namespaces secured for builders.",
+  },
+  {
+    icon: "code", tone: "good",
+    title: "CCIP-Read gateway active",
+    note: "Gasless resolution across any chain.",
+  },
+  {
+    icon: "sparkle", tone: "accent",
+    title: "ENS wildcard resolver live",
+    note: "Advanced resolution for any subname.",
+  },
 ];
 
 const DASHBOARD_FEATURES = [
@@ -63,6 +93,46 @@ const DOES_NOT = [
   "Custody funds or assets",
 ];
 
+type TrustIcon = "globe" | "shield" | "bookmark" | "code" | "sparkle";
+
+const TRUST_PATHS: Record<TrustIcon, React.ReactNode> = {
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="9.2" />
+      <path d="M2.8 12h18.4" />
+      <path d="M12 2.8a14.2 14.2 0 0 1 0 18.4 14.2 14.2 0 0 1 0-18.4Z" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 2.6 4.6 5.7v5.6c0 4.6 3.1 8.8 7.4 10.1 4.3-1.3 7.4-5.5 7.4-10.1V5.7L12 2.6Z" />
+      <path d="m9.1 11.9 2 2 3.8-3.9" />
+    </>
+  ),
+  bookmark: <path d="M18.2 21.4 12 17.2l-6.2 4.2V4.9a2.3 2.3 0 0 1 2.3-2.3h7.8a2.3 2.3 0 0 1 2.3 2.3v16.5Z" />,
+  code: (
+    <>
+      <path d="m8.4 17.2-5.2-5.2 5.2-5.2" />
+      <path d="m15.6 6.8 5.2 5.2-5.2 5.2" />
+    </>
+  ),
+  sparkle: (
+    <>
+      <path d="M11 2.8 12.9 8 18 9.9 12.9 11.8 11 17l-1.9-5.2L4 9.9 9.1 8 11 2.8Z" />
+      <path d="M18.2 15.1 19 17.3l2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2Z" />
+    </>
+  ),
+};
+
+function TrustGlyph({ name }: { name: TrustIcon }) {
+  return (
+    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {TRUST_PATHS[name]}
+    </svg>
+  );
+}
+
 function Check({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -90,7 +160,9 @@ function PhoneMock() {
         </div>
 
         <div className="phone-identity">
-          <span className="phone-avatar" />
+          <span className="phone-avatar">
+            <img src="/brand/avatar.svg" alt="" />
+          </span>
           <span className="phone-identity-text">
             <span className="phone-name">joe.rwa-id.eth</span>
             <span className="phone-addr">0x7F3a…E6f7</span>
@@ -137,7 +209,7 @@ function Faq({ q, children, open = false }: { q: string; children: React.ReactNo
 function LogoTile({ dir, file, label }: { dir: string; file: string; label: string }) {
   return (
     <span className="logo-tile">
-      <span className="logo-tile-mark"><img src={`/brand/${dir}/${file}`} alt="" width="26" height="26" /></span>
+      <span className="logo-tile-mark"><img src={`/brand/${dir}/${file}`} alt="" width="36" height="36" /></span>
       <span className="logo-tile-label">{label}</span>
     </span>
   );
@@ -234,8 +306,19 @@ export default function Landing() {
       {/* ── Trust strip ── */}
       <section className="l-strip">
         <div className="mk-trust">
-          <span className="pill pill-good"><span className="dot dot-live" />Live on Ethereum Mainnet</span>
-          {TRUST.map((t) => <span key={t} className="pill">{t}</span>)}
+          {TRUST.map((t) => (
+            <article key={t.title} className={`mk-stat is-${t.tone}`}>
+              <span className="mk-stat-icon"><TrustGlyph name={t.icon} /></span>
+              <div className="mk-stat-body">
+                {t.stat && <span className="mk-stat-num">{t.stat}</span>}
+                <h3 className="mk-stat-title">
+                  {t.live && <span className="mk-stat-dot" />}
+                  {t.title}
+                </h3>
+                <p className="mk-stat-note">{t.note}</p>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 

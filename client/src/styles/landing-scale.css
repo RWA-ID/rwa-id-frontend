@@ -45,8 +45,49 @@
 .mk-head-center .l-section-lede { margin: 18px auto 0 }
 
 /* ── Trust strip ────────────────────────────────────────────────────────── */
-.mk-trust { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; padding-top: 26px }
-.mk-trust .pill { padding: 9px 16px; font-size: 12.5px }
+/* Five proof points. Pills read as chrome at this width, so each one gets a
+   card: tinted icon well, an optional figure, the claim, and one line of
+   substance under it. */
+.mk-trust { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; padding-top: 26px }
+.mk-stat {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.mk-stat:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: 0 14px 28px -18px rgba(14, 15, 17, .38);
+}
+.mk-stat-icon {
+  width: 52px; height: 52px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.mk-stat.is-accent .mk-stat-icon { background: var(--accent-soft); color: var(--accent) }
+.mk-stat.is-good   .mk-stat-icon { background: var(--good-bg);     color: var(--good) }
+.mk-stat-body { min-width: 0; display: flex; flex-direction: column; gap: 4px }
+.mk-stat-num { font: 600 26px/1.05 var(--f-sans); letter-spacing: -.035em; color: var(--ink) }
+.mk-stat-title {
+  margin: 0;
+  font: 500 15px/1.3 var(--f-sans);
+  letter-spacing: -.02em;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+/* Inline rather than a flex child so the dot sits with the first word and the
+   title still wraps normally under it. */
+.mk-stat-dot {
+  display: inline-block; vertical-align: middle;
+  width: 6px; height: 6px; margin: -2px 7px 0 0;
+  border-radius: 50%;
+  background: var(--good);
+  animation: pulseDot 2.6s ease-in-out infinite;
+}
+.mk-stat-note { margin: 2px 0 0; font: 400 13px/1.5 var(--f-sans); color: var(--muted); text-wrap: pretty }
 
 /* ── Revenue split: the fee table on the dark money card ────────────────── */
 .mk-revenue {
@@ -135,7 +176,14 @@
 .mk-panel-logos { display: flex; flex-direction: column; align-items: center }
 .mk-panel-logos .mk-panel-title { text-align: center }
 .mk-panel-logos .logo-row { justify-content: center }
-.logo-tile-mark img { max-width: 100%; max-height: 100%; object-fit: contain }
+
+/* The dashboard sizes these tiles for a sidebar; on a landing page at this
+   width they read as afterthoughts. One step up, still on one row at 1520px. */
+.mk-panel-logos .logo-row { gap: 10px }
+.mk-panel-logos .logo-tile { width: 100px; padding: 16px 8px 14px; gap: 11px; border-radius: 20px }
+.mk-panel-logos .logo-tile-mark { width: 58px; height: 58px; border-radius: 17px }
+.mk-panel-logos .logo-tile-label { font-size: 12.5px }
+.logo-tile-mark img { width: 36px; height: 36px; max-width: 100%; max-height: 100%; object-fit: contain }
 .mk-ccip {
   margin-top: 14px; display: flex; align-items: center; gap: 18px;
   padding: 18px 22px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface);
@@ -209,16 +257,27 @@
 .mk-contract a:hover { color: var(--ink) }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 1320px) {
+  .mk-trust { grid-template-columns: repeat(3, 1fr) }
+}
 @media (max-width: 1100px) {
   .mk-features { grid-template-columns: 1fr 1fr }
   .l-cards { grid-template-columns: 1fr }
 }
 @media (max-width: 900px) {
   .mk-hero, .l-section-head, .mk-two, .mk-scope, .mk-form-grid, .mk-revenue { grid-template-columns: 1fr }
+  .mk-trust { grid-template-columns: repeat(2, 1fr) }
   .mk-features { grid-template-columns: 1fr }
   .mk-hero { padding: 20px 20px 48px; gap: 36px }
   .mk-section { padding-top: 54px }
   .l-footer-cols { grid-template-columns: 1fr 1fr }
   .l-footer-top { grid-template-columns: 1fr }
   .mk-ccip { flex-direction: column; align-items: flex-start }
+}
+@media (max-width: 720px) {
+  .mk-trust { grid-template-columns: 1fr; gap: 10px }
+  .mk-stat { padding: 18px }
+  .mk-panel-logos .logo-tile { width: 84px; padding: 13px 6px 11px; border-radius: 16px }
+  .mk-panel-logos .logo-tile-mark { width: 48px; height: 48px; border-radius: 14px }
+  .logo-tile-mark img { width: 30px; height: 30px }
 }
